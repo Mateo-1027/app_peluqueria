@@ -1,0 +1,46 @@
+<!-- templates/deleted_appointments.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Turnos Eliminados</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans p-6">
+  <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow p-6">
+    <h1 class="text-2xl font-bold mb-4">Turnos Eliminados</h1>
+
+    {% if appointments %}
+      <ul class="divide-y divide-gray-200">
+        {% for a in appointments %}
+          <li class="py-4 flex items-center justify-between">
+            <span>
+              <strong>{{ a.dog.name }}</strong> - {{ a.description }}<br>
+              {{ a.start_time.strftime('%d/%m/%Y %H:%M') }} a {{ a.end_time.strftime('%H:%M') }}
+            </span>
+            <form action="/appointments/permanent_delete/{{ a.id }}" method="POST" onsubmit="return confirm('Eliminar permanentemente este turno?')">
+              <button type="submit" class="text-red-600 hover:underline">Eliminar Definitivamente</button>
+            </form>
+            <form action="/appointments/restore/{{ a.id }}" method="POST" class="inline ml-2">
+              <button type="submit" class="text-green-600 text-sm hover:underline">Restaurar</button>
+            </form>
+
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-gray-500">No hay turnos eliminados.</p>
+    {% endif %}
+
+    <a href="/" class="inline-block mt-6 text-blue-600 hover:underline">&larr; Volver al inicio</a>
+  </div>
+
+  <form action="/appointments/delete_all" method="POST" onsubmit="return confirm('¿Vaciar la papelera y eliminar todos los turnos definitivamente?')">
+    <button type="submit" class="bg-red-600 text-white px-4 py-2 mt-6 rounded hover:bg-red-700">
+      Vaciar papelera
+    </button>
+</form>
+
+</body>
+</html>

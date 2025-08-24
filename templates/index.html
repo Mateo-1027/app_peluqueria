@@ -1,0 +1,47 @@
+<!-- templates/index.html (ahora actúa como "mascotas.html") -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mascotas</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans p-6">
+  <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow p-6">
+    <h1 class="text-2xl font-bold mb-4">Registro de Mascotas</h1>
+
+    <!-- Formulario agregar perro -->
+    <form action="/dogs" method="POST" class="grid grid-cols-2 gap-4 mb-6">
+      <input type="text" name="name" placeholder="Nombre del perro" required class="col-span-1 p-2 rounded border" />
+      <input type="text" name="owner_name" placeholder="Nombre del dueño" required class="col-span-1 p-2 rounded border" />
+      <input type="text" name="breed" placeholder="Raza" required class="col-span-1 p-2 rounded border" />
+      <textarea name="notes" placeholder="Notas" class="col-span-2 border p-2 rounded"></textarea>
+      <button type="submit" class="col-span-2 bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
+        Agregar Perro
+      </button>
+    </form>
+
+    <!-- Lista de perros -->
+    <div>
+      <h2 class="text-xl font-semibold mb-2">Mascotas registradas:</h2>
+      <ul class="list-disc pl-5">
+        {% for dog in dogs %}
+          <li>
+            <a href="/dogs/{{ dog.id }}" class="text-blue-600 hover:underline">
+              <strong>{{ dog.name }}</strong>
+            </a>
+            ({{ dog.breed }}) - De {{ dog.owner_name }}
+            <a href="/dogs/edit/{{ dog.id }}" class="ml-2 text-blue-600 text-sm hover:underline">Editar</a>
+            <form action="/dogs/delete/{{ dog.id }}" method="POST" onsubmit="return confirm('¿Eliminar este perro?')" class="inline ml-2">
+              <button type="submit" class="text-red-600 text-sm hover:underline">Eliminar</button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <a href="/" class="inline-block mt-6 text-blue-600 hover:underline">&larr; Volver al Menú</a>
+  </div>
+</body>
+</html>
