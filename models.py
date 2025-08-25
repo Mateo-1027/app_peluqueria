@@ -1,7 +1,7 @@
-from app import db 
+from extensions import db  # Importa 'db'
 from flask_login import UserMixin
-from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime
 
 
 #-------- Modelos --------#
@@ -22,7 +22,6 @@ class Dog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     owner_name = db.Column(db.String(100))
-    breed = db.Column(db.String(100))
     is_deleted = db.Column(db.Boolean, default=False)
     notes = db.Column(db.Text)
 
