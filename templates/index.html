@@ -1,46 +1,106 @@
-<!-- templates/index.html (ahora actúa como "mascotas.html") -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Mascotas</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mascotas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 text-gray-800 font-sans p-6">
-  <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow p-6">
-    <h1 class="text-2xl font-bold mb-4">Registro de Mascotas</h1>
+    <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow p-6">
+        <h1 class="text-2xl font-bold mb-4">Registro de Mascotas</h1>
 
-    <!-- Formulario agregar perro -->
-    <form action="/dogs" method="POST" class="grid grid-cols-2 gap-4 mb-6">
-      <input type="text" name="name" placeholder="Nombre del perro" required class="col-span-1 p-2 rounded border" />
-      <input type="text" name="owner_name" placeholder="Nombre del dueño" required class="col-span-1 p-2 rounded border" />
-      <textarea name="notes" placeholder="Notas" class="col-span-2 border p-2 rounded"></textarea>
-      <button type="submit" class="col-span-2 bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
-        Agregar Perro
-      </button>
-    </form>
+        <form action="{{ url_for('main.add_dog') }}" method="POST" class="grid grid-cols-2 gap-4 mb-6">
+            <input type="text" name="name" placeholder="Nombre del perro" required class="col-span-1 p-2 rounded border" />
+            <input type="text" name="owner_name" placeholder="Nombre del dueño" required class="col-span-1 p-2 rounded border" />
+            <textarea name="notes" placeholder="Notas" class="col-span-2 border p-2 rounded"></textarea>
+            <button type="submit" class="col-span-2 bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
+                Agregar Perro
+            </button>
+        </form>
 
-    <!-- Lista de perros -->
-    <div>
-      <h2 class="text-xl font-semibold mb-2">Mascotas registradas:</h2>
-      <ul class="list-disc pl-5">
-        {% for dog in dogs %}
-          <li>
-            <a href="/dogs/{{ dog.id }}" class="text-blue-600 hover:underline">
-              <strong>{{ dog.name }}</strong>
-            </a>
-            ({{ dog.breed }}) - De {{ dog.owner_name }}
-            <a href="/dogs/edit/{{ dog.id }}" class="ml-2 text-blue-600 text-sm hover:underline">Editar</a>
-            <form action="/dogs/delete/{{ dog.id }}" method="POST" onsubmit="return confirm('¿Eliminar este perro?')" class="inline ml-2">
-              <button type="submit" class="text-red-600 text-sm hover:underline">Eliminar</button>
-            </form>
-          </li>
-        {% endfor %}
-      </ul>
+        <div class="flex items-center gap-2 mb-4">
+            <input type="text" id="searchInput" placeholder="Buscar por nombre, dueño o legajo..." class="flex-grow p-2 border rounded" />
+            <button id="showAllBtn" class="bg-gray-200 text-gray-800 py-2 px-4 rounded hover:bg-gray-300">
+                Mostrar Todos
+            </button>
+        </div>
+
+        <div id="petsContainer" style="display: none;">
+            <h2 class="text-xl font-semibold mb-2">Mascotas registradas:</h2>
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Legajo</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dueño</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="petsTableBody" class="bg-white divide-y divide-gray-200">
+                    {% for dog in dogs %}
+                    <tr class="pet-item">
+                        <td class="px-6 py-4 whitespace-nowrap">{{ dog.id }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ dog.name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ dog.owner_name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <a href="{{ url_for('main.view_dog', dog_id=dog.id) }}" class="text-blue-600 hover:text-blue-900">Ver</a> |
+                            <a href="{{ url_for('main.edit_dog', dog_id=dog.id) }}" class="text-indigo-600 hover:text-indigo-900">Editar</a> |
+                            <form action="{{ url_for('main.delete_dog', dog_id=dog.id) }}" method="POST" class="inline">
+                                <button type="submit" class="text-red-600 hover:text-red-900" onclick="return confirm('¿Estás seguro de que quieres eliminar a {{ dog.name }}?');">Eliminar</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <a href="{{ url_for('main.menu_inicio') }}" class="inline-block mt-6 text-blue-600 hover:underline">&larr; Volver al Menú</a>
     </div>
 
-    <a href="/" class="inline-block mt-6 text-blue-600 hover:underline">&larr; Volver al Menú</a>
-  </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('searchInput');
+            const showAllBtn = document.getElementById('showAllBtn');
+            const petsContainer = document.getElementById('petsContainer');
+            const petsTableBody = document.getElementById('petsTableBody');
+            const petItems = petsTableBody.getElementsByClassName('pet-item');
+
+            // Función para filtrar la lista de mascotas
+            function filterPets() {
+                const searchTerm = searchInput.value.toLowerCase();
+                const isSearchActive = searchTerm.length > 0;
+
+                if (!isSearchActive) {
+                    petsContainer.style.display = 'none';
+                    return;
+                }
+
+                petsContainer.style.display = 'block';
+
+                for (const item of petItems) {
+                    const text = item.textContent.toLowerCase();
+                    if (text.includes(searchTerm)) {
+                        item.style.display = '';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                }
+            }
+
+            // Escuchar la escritura en el campo de búsqueda
+            searchInput.addEventListener('keyup', filterPets);
+
+            // Escuchar el clic en el botón "Mostrar Todos"
+            showAllBtn.addEventListener('click', function() {
+                searchInput.value = '';
+                petsContainer.style.display = 'block';
+                for (const item of petItems) {
+                    item.style.display = '';
+                }
+            });
+        });
+    </script>
 </body>
 </html>
