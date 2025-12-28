@@ -6,6 +6,7 @@ from extensions import db, login_manager # Importa las extensiones
 from models import User, Dog, Appointment, MedicalNote # Importa las clases de modelos
 from utils import guardarBackUpTurnos # Importa la función de utilidad
 from datetime import datetime, timedelta
+from forms import LoginForm, DogForm, AppointmentForm
 
 # Crear un Blueprint
 main = Blueprint('main', __name__)
@@ -18,16 +19,15 @@ def load_user(user_id):
 
 @main.route('/login', methods=['GET', 'POST'])
 def login():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        user = User.query.filter_by(username=username).first()
-        if user and user.check_password(password):
+    form = LoginForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(username=form.username.data).first()
+        if user and user.check_password(form.password.data):
             login_user(user)
             return redirect(url_for('main.menu_inicio'))
         else:
             flash("Usuario o contraseña incorrectos")
-    return render_template('login.html')
+    return render_template('login.html', form=form)
 
 @main.route('/logout')
 @login_required
@@ -46,13 +46,32 @@ def menu_inicio():
 @login_required
 def vista_mascotas():
     dogs = Dog.query.filter_by(is_deleted=False).all()
-    return render_template('index.html', dogs=dogs)
+    form = DogForm() # <--- Lo nuevo: Creamos el form vacío
+    return render_template('index.html', dogs=dogs, form=form)
 
 @main.route('/turnos')
 @login_required
 def vista_turnos():
+    
     dogs = Dog.query.filter_by(is_deleted=False).all()
-    return render_template('turnos.html', dogs=dogs)
+    form = AppointmentForm()
+    form.dog_id.choices = [(d.id, f"{d.name} ({d.owner_name or 'Sin dueño'})") for d in dogs]
+
+    return render_template('turnos.html', dogs=dogs, form=form)
+
+@main.route('/api/dogs')
+@login_required
+def get_dogs_json():
+    dogs = Dog.query.filter_by(is_deleted=False).all()
+    dogs_list = [
+        {
+            'id': dog.id,
+            'name': dog.name,
+            'owner_name': dog.owner_name,
+        }
+        for dog in dogs
+    ]
+    return jsonify(dogs_list)
 
 #-------- Rutas de Citas --------#
 
@@ -78,57 +97,33 @@ def get_appointments():
 @main.route('/appointments', methods=['POST'])
 @login_required
 def add_appointment():
-    try:
-        duration = int(request.form.get('duration'))
-        dog_id = request.form.get('dog_id')
-        description = request.form.get('description')
-        start_time_str = request.form.get('start_time')
-        color = request.form.get('color')
+    form = AppointmentForm()
+   
+    dogs = Dog.query.filter_by(is_deleted=False).all()
+    form.dog_id.choices = [(d.id, d.name) for d in dogs]
 
-        if duration < 15:
-            flash("La duración mínima es de 15 minutos.")
-            return redirect(url_for('main.vista_turnos'))
+    if form.validate_on_submit():
 
-        dog = Dog.query.get(dog_id)
-        if dog is None or dog.is_deleted:
-            flash("Mascota inválida.")
-            return redirect(url_for('main.vista_turnos'))
+        # Cálculo de fecha fin
+        end_time = form.start_time.data + timedelta(minutes=form.duration.data)
 
-        start_time = datetime.fromisoformat(start_time_str)
-        if start_time < datetime.now():
-            flash("No puedes crear un turno en el pasado.")
-            return redirect(url_for('main.vista_turnos'))
-    except (ValueError, TypeError):
-        flash("Datos de entrada inválidos.")
-        return redirect(url_for('main.vista_turnos'))
-        
-    end_time = start_time + timedelta(minutes=duration)
+        new_appointment = Appointment(
+            dog_id=form.dog_id.data,
+            description=form.description.data,
+            start_time=form.start_time.data,
+            end_time=end_time,
+            color=form.color.data
+        )
 
-    conflict = Appointment.query.filter(
-        Appointment.dog_id == dog_id,
-        Appointment.start_time < end_time,
-        Appointment.end_time > start_time,
-        Appointment.is_deleted == False
-    ).first()
-
-    if conflict:
-        flash("Conflicto de horario: Ya existe un turno en ese horario para esta mascota.")
+        db.session.add(new_appointment)
+        db.session.commit()
+        guardarBackUpTurnos()
+        flash("Turno creado exitosamente.")
         return redirect(url_for('main.vista_turnos'))
 
-    new_appointment = Appointment(
-        dog_id=dog_id,
-        description=description,
-        start_time=start_time,
-        end_time=end_time,
-        color=color
-    )
-
-    db.session.add(new_appointment)
-    db.session.commit()
-    guardarBackUpTurnos()
-    
-    return redirect(url_for('main.vista_turnos'))
-
+    else:
+        # Si falla, volvemos a mostrar la página con los errores
+        return render_template('turnos.html', dogs=dogs, form=form)
 
 @main.route('/appointments/delete/<int:appointment_id>', methods=['POST'])
 @login_required
@@ -161,63 +156,37 @@ def delete_all_appointments():
     db.session.commit()
     return redirect(url_for('main.view_deleted_appointments'))
 
-@main.route('/appointments/edit/<int:appointment_id>', methods=['GET'])
+@main.route('/appointments/edit/<int:appointment_id>', methods=['GET', 'POST'])
 @login_required
 def edit_appointment(appointment_id):
     appointment = Appointment.query.get_or_404(appointment_id)
+    form = AppointmentForm(obj=appointment) # Carga los datos del turno en el formulario
+
+    # Cargar lista de perros
     dogs = Dog.query.filter_by(is_deleted=False).all()
-    return render_template('edit_appointment.html', appointment=appointment, dogs=dogs)
+    form.dog_id.choices = [(d.id, f"{d.name} ({d.owner_name})") for d in dogs]
 
-@main.route('/appointments/edit/<int:appointment_id>', methods=['POST'])
-@login_required
-def update_appointment(appointment_id):
-    appointment = Appointment.query.get_or_404(appointment_id)
+    if form.validate_on_submit():
+        # Actualizar datos
+        appointment.dog_id = form.dog_id.data
+        appointment.description = form.description.data
+        appointment.start_time = form.start_time.data
+        appointment.color = form.color.data
 
-    dog_id = request.form.get('dog_id')
-    description = request.form.get('description')
-    start_time_str = request.form.get('start_time')
-    duration = request.form.get('duration')
-    color = request.form.get('color')
+        # Recalcular hora fin basado en la nueva duración
+        appointment.end_time = form.start_time.data + timedelta(minutes=form.duration.data)
 
-    if not all([dog_id, start_time_str, duration]):
-        flash("Todos los campos son obligatorios.")
-        return redirect(url_for('main.edit_appointment', appointment_id=appointment_id))
-    
-    try: 
-        duration = int(duration)
-        if duration < 15:
-            flash("La duración mínima es de 15 minutos.")
-            return redirect(url_for('main.edit_appointment', appointment_id=appointment_id))
+        db.session.commit()
+        guardarBackUpTurnos()
+        flash("Turno actualizado.")
+        return redirect(url_for('main.vista_turnos'))
 
-        start_time = datetime.fromisoformat(start_time_str)
-        end_time = start_time + timedelta(minutes=duration)
+    # Un truco para pre-llenar la duración que no es un campo directo de la BD
+    if request.method == 'GET':
+        duration_minutes = (appointment.end_time - appointment.start_time).seconds // 60
+        form.duration.data = duration_minutes
 
-    except ValueError:
-        flash("Formato de fecha u hora inválido.")
-        return redirect(url_for('main.edit_appointment', appointment_id=appointment_id))
-
-    conflict = Appointment.query.filter(
-        Appointment.id != appointment.id,
-        Appointment.dog_id == dog_id,
-        Appointment.start_time < end_time,
-        Appointment.end_time > start_time,
-        Appointment.is_deleted == False
-    ).first()
-
-    if conflict:
-        flash("Conflicto de horario: Ya existe un turno en ese horario para esta mascota.")
-        return redirect(url_for('main.edit_appointment', appointment_id=appointment_id))
-
-    appointment.dog_id = dog_id
-    appointment.description = description
-    appointment.start_time = start_time
-    appointment.end_time = end_time
-    appointment.color = color
-
-    db.session.commit()
-    guardarBackUpTurnos()
-
-    return redirect(url_for('main.view_dog', dog_id=dog_id))
+    return render_template('edit_appointment.html', form=form, appointment=appointment)
 
 @main.route('/appointments/restore/<int:appointment_id>', methods=['POST'])
 @login_required
@@ -233,18 +202,22 @@ def restore_appointment(appointment_id):
 @main.route('/dogs', methods=['POST'])
 @login_required
 def add_dog():
-    name = request.form.get('name')
-    owner_name = request.form.get('owner_name')
-    notes = request.form.get('notes')
-
-    if not name:
-        flash("El nombre de la mascota es obligatorio.")
-        return redirect(url_for('main.vista_mascotas'))
+    form = DogForm()
     
-    new_dog = Dog(name=name, owner_name=owner_name, notes=notes)
-    db.session.add(new_dog)
-    db.session.commit()
-    return redirect(url_for('main.vista_mascotas'))
+
+    if form.validate_on_submit():
+        new_dog = Dog(
+            name=form.name.data,       
+            owner_name=form.owner_name.data,
+            notes=form.notes.data
+        )
+        db.session.add(new_dog)
+        db.session.commit()
+        flash('Mascota agregada correctamente.')
+        return redirect(url_for('main.vista_mascotas'))
+ 
+    dogs = Dog.query.filter_by(is_deleted=False).all()
+    return render_template('index.html', dogs=dogs, form=form)
 
 @main.route('/dogs/<int:dog_id>', methods=['GET'])
 @login_required
@@ -270,20 +243,20 @@ def delete_dog(dog_id):
 @login_required
 def edit_dog(dog_id):
     dog = Dog.query.get_or_404(dog_id)
-
-    if request.method == 'POST':
-        dog.name = request.form.get('name')
-        dog.owner_name = request.form.get('owner_name')
-        dog.notes = request.form.get('notes')
-
-        if not dog.name:
-            flash("El nombre de la mascota es obligatorio.")
-            return render_template('edit_dog.html', dog=dog)
-
+    
+    # Este truco carga los datos del perro en el formulario automáticamente
+    form = DogForm(obj=dog) 
+    
+    if form.validate_on_submit():
+        # Este otro truco pasa los datos del formulario al perro
+        form.populate_obj(dog) 
+        
         db.session.commit()
+        flash('Mascota actualizada.')
         return redirect(url_for('main.vista_mascotas'))
     
-    return render_template('edit_dog.html', dog=dog)
+    return render_template('edit_dog.html', form=form, dog=dog)
+
 
 @main.route('/add_note', methods=['POST'])
 @login_required

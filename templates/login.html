@@ -7,10 +7,29 @@
 </head>
 <body class="flex items-center justify-center h-screen bg-gray-100">
   <form method="POST" class="bg-white p-6 rounded shadow w-80">
+    {{ form.csrf_token }}
+    
     <h1 class="text-xl font-bold mb-4">Iniciar Sesión</h1>
-    <input type="text" name="username" placeholder="Usuario" class="w-full p-2 mb-3 border rounded" required>
-    <input type="password" name="password" placeholder="Contraseña" class="w-full p-2 mb-3 border rounded" required>
-    <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Entrar</button>
+    
+    <div class="mb-3">
+        {{ form.username(class="w-full p-2 border rounded", placeholder="Usuario") }}
+    </div>
+
+    <div class="mb-3">
+        {{ form.password(class="w-full p-2 border rounded", placeholder="Contraseña") }}
+    </div>
+
+    {{ form.submit(class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 cursor-pointer") }}
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="mt-4 text-red-600 text-sm text-center">
+          {% for message in messages %}
+            <p>{{ message }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
   </form>
 </body>
 </html>
