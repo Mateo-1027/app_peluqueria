@@ -1,56 +1,42 @@
-<!-- templates/deleted_appointments.html -->
-<!DOCTYPE html>
-<html lang="es">
+{% extends "base.html" %}
 
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Turnos Eliminados</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
+{% block title %}Turnos Eliminados - Peluqueria Canina{% endblock %}
 
-<body class="bg-gray-100 text-gray-800 font-sans p-6">
-  <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow p-6">
-    <h1 class="text-2xl font-bold mb-4">Turnos Eliminados</h1>
+{% block content %}
+<div class="bg-white rounded-2xl shadow p-6">
+  <h1 class="text-2xl font-bold mb-4">Turnos Eliminados</h1>
 
-    {% if appointments %}
-    <ul class="divide-y divide-gray-200">
-      {% for a in appointments %}
-      <li class="py-4 flex items-center justify-between">
-        <span>
-          <strong>{{ a.dog.name }}</strong> - {{ a.description }}<br>
-          {{ a.start_time.strftime('%d/%m/%Y %H:%M') }} a {{ a.end_time.strftime('%H:%M') }}
-        </span>
-        <div class="flex gap-2">
-          <form action="{{ url_for('main.restore_appointment', appointment_id=a.id) }}" method="POST" class="inline">
-            <button type="submit" class="text-green-600 hover:underline">Restaurar</button>
-          </form>
-          <form action="{{ url_for('main.permanent_delete_appointment', appointment_id=a.id) }}" method="POST"
-            onsubmit="return confirm('Eliminar permanentemente este turno?')">
-            <button type="submit" class="text-red-600 hover:underline">Eliminar Definitivamente</button>
-          </form>
-        </div>
-      </li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    <p class="text-gray-500">No hay turnos eliminados.</p>
-    {% endif %}
+  {% if appointments %}
+  <ul class="divide-y divide-gray-200">
+    {% for a in appointments %}
+    <li class="py-4 flex items-center justify-between">
+      <span>
+        <strong>{{ a.dog.name }}</strong> - {{ a.description }}<br>
+        {{ a.start_time.strftime('%d/%m/%Y %H:%M') }} a {{ a.end_time.strftime('%H:%M') }}
+      </span>
+      <div class="flex gap-2">
+        <form action="{{ url_for('main.restore_appointment', appointment_id=a.id) }}" method="POST" class="inline">
+          <button type="submit" class="text-green-600 hover:underline">Restaurar</button>
+        </form>
+        <form action="{{ url_for('main.permanent_delete_appointment', appointment_id=a.id) }}" method="POST"
+          onsubmit="return confirm('Eliminar permanentemente este turno?')">
+          <button type="submit" class="text-red-600 hover:underline">Eliminar Definitivamente</button>
+        </form>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
 
-    <div class="mt-6 flex justify-between items-center">
-      <a href="{{ url_for('main.vista_turnos') }}" class="text-blue-600 hover:underline">&larr; Volver a Turnos</a>
-
-      {% if appointments %}
-      <form action="{{ url_for('main.delete_all_appointments') }}" method="POST"
-        onsubmit="return confirm('¿Vaciar la papelera y eliminar todos los turnos definitivamente?')">
-        <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
-          Vaciar papelera
-        </button>
-      </form>
-      {% endif %}
-    </div>
+  <div class="mt-6 pt-4 border-t">
+    <form action="{{ url_for('main.delete_all_appointments') }}" method="POST"
+      onsubmit="return confirm('Vaciar la papelera y eliminar todos los turnos definitivamente?')">
+      <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
+        Vaciar papelera
+      </button>
+    </form>
   </div>
-
-</body>
-
-</html>
+  {% else %}
+  <p class="text-gray-500">No hay turnos eliminados.</p>
+  {% endif %}
+</div>
+{% endblock %}

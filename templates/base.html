@@ -1,0 +1,107 @@
+<!-- templates/base.html - Template base con sidebar -->
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}Sistema Peluqueria Canina{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    {% block head %}{% endblock %}
+</head>
+
+<body class="bg-gray-100 text-gray-800 font-sans">
+    <div class="flex min-h-screen">
+
+        <!-- Sidebar - Visible en desktop, oculto en movil -->
+        <aside id="sidebar"
+            class="fixed lg:static inset-y-0 left-0 z-40 w-64 bg-gradient-to-b from-blue-800 to-blue-900 text-white transform -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-in-out">
+            <div class="p-4 border-b border-blue-700">
+                <h1 class="text-xl font-bold">
+                    Peluqueria Canina
+                </h1>
+            </div>
+
+            <nav class="p-4 space-y-2">
+                <a href="{{ url_for('main.menu_inicio') }}"
+                    class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-blue-700 transition {% if request.path == '/menu' or request.path == '/' %}bg-blue-700{% endif %}">
+                    Menu Principal
+                </a>
+
+                <hr class="border-blue-700 my-4">
+
+                <a href="{{ url_for('main.vista_turnos') }}"
+                    class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-blue-700 transition {% if request.path == '/turnos' %}bg-blue-700{% endif %}">
+                    Turnos
+                </a>
+                <a href="{{ url_for('main.vista_mascotas') }}"
+                    class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-blue-700 transition {% if request.path == '/mascotas' %}bg-blue-700{% endif %}">
+                    Mascotas
+                </a>
+
+                <hr class="border-blue-700 my-4">
+
+                <a href="{{ url_for('main.list_services') }}"
+                    class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-blue-700 transition {% if '/services' in request.path %}bg-blue-700{% endif %}">
+                    Servicios
+                </a>
+                <a href="{{ url_for('main.list_items') }}"
+                    class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-blue-700 transition {% if '/items' in request.path %}bg-blue-700{% endif %}">
+                    Adicionales
+                </a>
+
+                <hr class="border-blue-700 my-4">
+
+                <a href="{{ url_for('main.view_deleted_appointments') }}"
+                    class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-blue-700 transition text-sm opacity-80 {% if '/appointments/deleted' in request.path %}bg-blue-700{% endif %}">
+                    Papelera
+                </a>
+            </nav>
+
+            <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-blue-700">
+                <a href="{{ url_for('main.logout') }}"
+                    class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-red-600 transition text-red-200">
+                    Cerrar Sesion
+                </a>
+            </div>
+        </aside>
+
+        <!-- Overlay para movil -->
+        <div id="sidebarOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden lg:hidden"
+            onclick="toggleSidebar()"></div>
+
+        <!-- Contenido principal -->
+        <main class="flex-1 lg:ml-0">
+            <!-- Header movil con boton hamburguesa -->
+            <header class="lg:hidden bg-white shadow p-4 flex items-center justify-between sticky top-0 z-20">
+                <button onclick="toggleSidebar()" class="text-2xl">&#9776;</button>
+                <span class="font-bold text-gray-700">Peluqueria Canina</span>
+                <div class="w-8"></div>
+            </header>
+
+            <!-- Contenido de cada pagina -->
+            <div class="p-6">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+
+            if (sidebar.classList.contains('-translate-x-full')) {
+                sidebar.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('hidden');
+            }
+        }
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+
+</html>

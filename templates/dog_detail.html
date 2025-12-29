@@ -1,66 +1,101 @@
-<!DOCTYPE html>
-<html lang="es">
+{% extends "base.html" %}
 
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Detalles de {{dog.name}}</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
+{% block title %}Detalles de {{dog.name}} - Peluqueria Canina{% endblock %}
 
-<body class="bg-gray-100 text-gray-800 font-sans p-6">
-  <div class="max-w-3xl mx-auto bg-white rounded-2xl shadow p-6">
-    <h1 class="text-2xl font-bold mb-2">Detalles de {{dog.name}}</h1>
-    <p class="mb-4 text-gray-600">Dueño: {{dog.owner_name}}</p>
+{% block content %}
+<div class="bg-white rounded-2xl shadow p-6">
+  <h1 class="text-2xl font-bold mb-2">Detalles de {{dog.name}}</h1>
+  <p class="mb-4 text-gray-600">Dueno: {{dog.owner_name}}</p>
 
-    <h2 class="text-xl font-semibold mt-4 mb-2">Turnos</h2>
-    {% if appointments %}
+  <h2 class="text-xl font-semibold mt-4 mb-2">Turnos</h2>
+  {% if appointments %}
+  <ul class="divide-y divide-gray-200">
+    {% for a in appointments %}
+    <li class="py-3 flex items-center justify-between">
+      <span>
+        <strong>{{ a.start_time.strftime('%d/%m/%Y %H:%M') }}</strong> - {{ a.description }} (hasta {{
+        a.end_time.strftime('%H:%M') }})
+      </span>
+      <div class="flex gap-2">
+        <a href="{{ url_for('main.edit_appointment', appointment_id=a.id) }}"
+          class="text-blue-600 hover:underline">Editar</a>
+        <form action="{{ url_for('main.delete_appointment', appointment_id=a.id) }}" method="POST"
+          onsubmit="return confirm('Eliminar este turno?')" class="inline">
+          <button type="submit" class="text-red-600 hover:underline">Eliminar</button>
+        </form>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="text-gray-500">Este perro no tiene turnos registrados.</p>
+  {%endif%}
+
+  <h2 class="text-xl font-semibold mt-6 mb-2">Historial Medico</h2>
+  {% if notes %}
+  <!-- Lista con scroll limitado -->
+  <div class="max-h-72 overflow-y-auto border rounded-lg p-2 bg-gray-50">
     <ul class="divide-y divide-gray-200">
-      {% for a in appointments %}
-      <li class="py-3 flex items-center justify-between">
-        <span>
-          <strong>{{ a.start_time.strftime('%d/%m/%Y %H:%M') }}</strong> - {{ a.description }} (hasta {{
-          a.end_time.strftime('%H:%M') }})
-        </span>
-        <div class="flex gap-2">
-          <a href="{{ url_for('main.edit_appointment', appointment_id=a.id) }}"
-            class="text-blue-600 hover:underline">Editar</a>
-          <form action="{{ url_for('main.delete_appointment', appointment_id=a.id) }}" method="POST"
-            onsubmit="return confirm('¿Eliminar este turno?')" class="inline">
-            <button type="submit" class="text-red-600 hover:underline">Eliminar</button>
-          </form>
+      {% for note in notes %}
+      <li class="py-2 px-2 hover:bg-gray-100 cursor-pointer rounded transition"
+        onclick="openNoteModal('{{ note.date.strftime('%d/%m/%Y') }}', `{{ note.note | replace('`', '') | replace('\n', ' ') }}`)">
+        <div class="flex items-center justify-between">
+          <span class="font-medium text-blue-600">{{ note.date.strftime('%d/%m/%Y') }}</span>
+          <span class="text-gray-400 text-sm">Clic para ver</span>
         </div>
       </li>
       {% endfor %}
     </ul>
-    {% else %}
-    <p class="text-gray-500">Este perro no tiene turnos registrados.</p>
-    {%endif%}
-
-    <h2 class="text-xl font-semibold mt-6 mb-2">Historial Médico</h2>
-    {% if notes %}
-    <ul class="list-disc pl-5 mb-4">
-      {% for note in notes %}
-      <li><strong>{{ note.date.strftime('%d/%m/%Y') }}</strong>: {{ note.note }}</li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    <p class="text-gray-500">No hay notas médicas.</p>
-    {% endif %}
-
-    <h3 class="text-lg font-semibold mt-4 mb-2">Agregar Nota Médica</h3>
-    <form action="{{ url_for('main.add_note') }}" method="POST" class="space-y-3">
-      <input type="hidden" name="dog_id" value="{{dog.id}}">
-      <textarea name="note" placeholder="Detalle de la nota" required class="w-full p-2 border rounded"></textarea>
-      <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-        Guardar Nota
-      </button>
-    </form>
-
-    <a href="{{ url_for('main.vista_mascotas') }}" class="inline-block mt-6 text-blue-600 hover:underline">&larr; Volver
-      a Mascotas</a>
   </div>
+  {% else %}
+  <p class="text-gray-500">No hay notas medicas.</p>
+  {% endif %}
 
-</body>
+  <h3 class="text-lg font-semibold mt-6 mb-2">Agregar Nota Medica</h3>
+  <form action="{{ url_for('main.add_note') }}" method="POST" class="space-y-3">
+    <input type="hidden" name="dog_id" value="{{dog.id}}">
+    <textarea name="note" placeholder="Detalle de la nota" required class="w-full p-2 border rounded"></textarea>
+    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+      Guardar Nota
+    </button>
+  </form>
+</div>
 
-</html>
+<!-- Modal para ver nota completa -->
+<div id="noteModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50"
+  onclick="closeNoteModal(event)">
+  <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full mx-4 p-6" onclick="event.stopPropagation()">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-lg font-bold">Nota del <span id="modalDate"></span></h3>
+      <button onclick="closeNoteModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+    </div>
+    <div class="bg-gray-50 p-4 rounded-lg max-h-80 overflow-y-auto">
+      <p id="modalContent" class="text-gray-700 whitespace-pre-wrap"></p>
+    </div>
+    <button onclick="closeNoteModal()" class="mt-4 w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
+      Cerrar
+    </button>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function openNoteModal(date, content) {
+    document.getElementById('modalDate').textContent = date;
+    document.getElementById('modalContent').textContent = content;
+    document.getElementById('noteModal').classList.remove('hidden');
+    document.getElementById('noteModal').classList.add('flex');
+  }
+
+  function closeNoteModal(event) {
+    if (event && event.target !== document.getElementById('noteModal')) return;
+    document.getElementById('noteModal').classList.add('hidden');
+    document.getElementById('noteModal').classList.remove('flex');
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeNoteModal();
+  });
+</script>
+{% endblock %}
