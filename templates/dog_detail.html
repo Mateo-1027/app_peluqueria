@@ -1,69 +1,66 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Detalles de {{dog.name}}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <title>title</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Detalles de {{dog.name}}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 text gray-800 font-sans p-6">
-    <div class="max-w-3xl" mx-auto bg-white rounded-2x1 shadow p-6>
-        <h1 class="text-xl font-bold mb-2">Detalles de {{dog.name}}</h1>
-        <p class="mb-4 text-gray-600">Raza: {{dog.breed}} <br> Dueño: {{dog.owner_name}}</p>
 
-        <h2 class="text-xl font-semibold mt-4 mb-2">Turnos</h2>
-        {% if appointments %}
-          <ul class="list-disc pl-5 mb-4">
-            {% for a in appointments %}
-              <li class="flex items-center justify-between">
-                <span>
-                  <strong>{{ a.start_time.strftime('%d/%m/%Y %H:%M') }}</strong> - {{ a.description }} ({{ a.end_time.strftime('%H:%M') }})
-                </span>
-                <form action="/appointments/delete/{{ a.id }}" method="POST" onsubmit="return confirm('¿Eliminar este turno?')" class="ml-4">
-                  <button type="submit" class="text-red-600 hover:underline">Eliminar</button>
-                </form>
-              </li>
-            {% endfor %}
-          </ul>
+<body class="bg-gray-100 text-gray-800 font-sans p-6">
+  <div class="max-w-3xl mx-auto bg-white rounded-2xl shadow p-6">
+    <h1 class="text-2xl font-bold mb-2">Detalles de {{dog.name}}</h1>
+    <p class="mb-4 text-gray-600">Dueño: {{dog.owner_name}}</p>
 
-        {% else %}
-            <p class="text-gray-500">Este perro no tiene turnos registrados.</p>
-        {%endif%}
-
-        <h2 class=""></h2>
-        {% if notes %}
-      <ul class="list-disc pl-5 mb-4">
-        {% for note in notes %}
-          <li><strong>{{ note.date.strftime('%d/%m/%Y') }}</strong>: {{ note.note }}</li>
-        {% endfor %}
-      </ul>
+    <h2 class="text-xl font-semibold mt-4 mb-2">Turnos</h2>
+    {% if appointments %}
+    <ul class="divide-y divide-gray-200">
+      {% for a in appointments %}
+      <li class="py-3 flex items-center justify-between">
+        <span>
+          <strong>{{ a.start_time.strftime('%d/%m/%Y %H:%M') }}</strong> - {{ a.description }} (hasta {{
+          a.end_time.strftime('%H:%M') }})
+        </span>
+        <div class="flex gap-2">
+          <a href="{{ url_for('main.edit_appointment', appointment_id=a.id) }}"
+            class="text-blue-600 hover:underline">Editar</a>
+          <form action="{{ url_for('main.delete_appointment', appointment_id=a.id) }}" method="POST"
+            onsubmit="return confirm('¿Eliminar este turno?')" class="inline">
+            <button type="submit" class="text-red-600 hover:underline">Eliminar</button>
+          </form>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
     {% else %}
-      <p class="text-gray-500">No hay notas médicas.</p>
-    {% endif %}
-    
-        <h2 class="text-xl font-semibold mt-4 mb-2">Historial Médico</h2>
+    <p class="text-gray-500">Este perro no tiene turnos registrados.</p>
+    {%endif%}
+
+    <h2 class="text-xl font-semibold mt-6 mb-2">Historial Médico</h2>
     {% if notes %}
-      <ul class="list-disc pl-5 mb-4">
-        {% for note in notes %}
-          <li><strong>{{ note.date.strftime('%d/%m/%Y') }}</strong>: {{ note.note }}</li>
-        {% endfor %}
-      </ul>
+    <ul class="list-disc pl-5 mb-4">
+      {% for note in notes %}
+      <li><strong>{{ note.date.strftime('%d/%m/%Y') }}</strong>: {{ note.note }}</li>
+      {% endfor %}
+    </ul>
     {% else %}
-      <p class="text-gray-500">No hay notas médicas.</p>
+    <p class="text-gray-500">No hay notas médicas.</p>
     {% endif %}
 
-    <h3 class="text-lg font-semibold mt-4 mb-2">Agregar Nota Medica</h3>
-    <form action="/add_note" method="POST" class="space-y-3">
-        <input type="hidden" name="dog_id" value="{{dog.id}}">
-        <textarea name="note" placeholder="Detalle de la note" required class="w-full p-2 border rounded"></textarea>
-        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+    <h3 class="text-lg font-semibold mt-4 mb-2">Agregar Nota Médica</h3>
+    <form action="{{ url_for('main.add_note') }}" method="POST" class="space-y-3">
+      <input type="hidden" name="dog_id" value="{{dog.id}}">
+      <textarea name="note" placeholder="Detalle de la nota" required class="w-full p-2 border rounded"></textarea>
+      <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
         Guardar Nota
       </button>
     </form>
 
-    <a href="/" class="inline-block mt-6 text-blue-600 hover:underline">&larr; Volver al inicio</a>
-    </div>
-    
+    <a href="{{ url_for('main.vista_mascotas') }}" class="inline-block mt-6 text-blue-600 hover:underline">&larr; Volver
+      a Mascotas</a>
+  </div>
+
 </body>
+
 </html>

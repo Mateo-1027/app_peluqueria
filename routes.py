@@ -3,10 +3,10 @@
 from flask import Blueprint, render_template, request, redirect, jsonify, url_for, flash
 from flask_login import login_user, login_required, logout_user, current_user
 from extensions import db, login_manager # Importa las extensiones
-from models import User, Dog, Appointment, MedicalNote # Importa las clases de modelos
+from models import User, Dog, Appointment, MedicalNote, Service, Item # Importa las clases de modelos
 from utils import guardarBackUpTurnos # Importa la función de utilidad
 from datetime import datetime, timedelta
-from forms import LoginForm, DogForm, AppointmentForm
+from forms import LoginForm, DogForm, AppointmentForm, ServiceForm, ItemForm
 
 # Crear un Blueprint
 main = Blueprint('main', __name__)
@@ -52,10 +52,16 @@ def vista_mascotas():
 @main.route('/turnos')
 @login_required
 def vista_turnos():
-    
     dogs = Dog.query.filter_by(is_deleted=False).all()
+    services = Service.query.filter_by(is_active=True).all()
+    items = Item.query.filter_by(is_active=True).all()
+    users = User.query.all()  # Todas las peluqueras
+    
     form = AppointmentForm()
     form.dog_id.choices = [(d.id, f"{d.name} ({d.owner_name or 'Sin dueño'})") for d in dogs]
+    form.service_id.choices = [(s.id, f"{s.name} - ${s.base_price:,.0f}") for s in services]
+    form.item_ids.choices = [(i.id, f"{i.name} (+${i.price:,.0f})") for i in items]
+    form.user_id.choices = [(u.id, u.username) for u in users]
 
     return render_template('turnos.html', dogs=dogs, form=form)
 
@@ -99,26 +105,52 @@ def get_appointments():
 def add_appointment():
     form = AppointmentForm()
    
+    # Cargar opciones para el formulario
     dogs = Dog.query.filter_by(is_deleted=False).all()
+    services = Service.query.filter_by(is_active=True).all()
+    items = Item.query.filter_by(is_active=True).all()
+    users = User.query.all()
+    
     form.dog_id.choices = [(d.id, d.name) for d in dogs]
+    form.service_id.choices = [(s.id, s.name) for s in services]
+    form.item_ids.choices = [(i.id, i.name) for i in items]
+    form.user_id.choices = [(u.id, u.username) for u in users]
 
     if form.validate_on_submit():
-
-        # Cálculo de fecha fin
+        # Obtener el servicio seleccionado
+        service = Service.query.get(form.service_id.data)
+        
+        # Calcular fecha fin usando la duración MANUAL del usuario
         end_time = form.start_time.data + timedelta(minutes=form.duration.data)
 
+        # Calcular precio total (servicio + items adicionales)
+        final_price = service.base_price
+        selected_items = Item.query.filter(Item.id.in_(form.item_ids.data)).all() if form.item_ids.data else []
+        for item in selected_items:
+            final_price += item.price
+
+        # Crear el turno
         new_appointment = Appointment(
             dog_id=form.dog_id.data,
+            service_id=form.service_id.data,
+            user_id=form.user_id.data,
             description=form.description.data,
             start_time=form.start_time.data,
             end_time=end_time,
-            color=form.color.data
+            final_price=final_price,
+            color=form.color.data,
+            status='Pendiente'
         )
 
         db.session.add(new_appointment)
+        db.session.flush()  # Para obtener el ID del appointment
+        
+        # Asociar items adicionales
+        new_appointment.items = selected_items
+        
         db.session.commit()
         guardarBackUpTurnos()
-        flash("Turno creado exitosamente.")
+        flash(f"Turno creado exitosamente. Total: ${final_price:,.0f}")
         return redirect(url_for('main.vista_turnos'))
 
     else:
@@ -160,29 +192,53 @@ def delete_all_appointments():
 @login_required
 def edit_appointment(appointment_id):
     appointment = Appointment.query.get_or_404(appointment_id)
-    form = AppointmentForm(obj=appointment) # Carga los datos del turno en el formulario
+    form = AppointmentForm(obj=appointment)
 
-    # Cargar lista de perros
+    # Cargar listas para opciones del formulario
     dogs = Dog.query.filter_by(is_deleted=False).all()
+    services = Service.query.filter_by(is_active=True).all()
+    items = Item.query.filter_by(is_active=True).all()
+    users = User.query.all()
+    
     form.dog_id.choices = [(d.id, f"{d.name} ({d.owner_name})") for d in dogs]
+    form.service_id.choices = [(s.id, f"{s.name} - ${s.base_price:,.0f}") for s in services]
+    form.item_ids.choices = [(i.id, f"{i.name} (+${i.price:,.0f})") for i in items]
+    form.user_id.choices = [(u.id, u.username) for u in users]
 
     if form.validate_on_submit():
-        # Actualizar datos
+        # Obtener el servicio
+        service = Service.query.get(form.service_id.data)
+        
+        # Actualizar datos básicos
         appointment.dog_id = form.dog_id.data
+        appointment.service_id = form.service_id.data
+        appointment.user_id = form.user_id.data
         appointment.description = form.description.data
         appointment.start_time = form.start_time.data
         appointment.color = form.color.data
 
-        # Recalcular hora fin basado en la nueva duración
+        # Recalcular hora fin basado en la duración MANUAL
         appointment.end_time = form.start_time.data + timedelta(minutes=form.duration.data)
+        
+        # Recalcular precio total
+        final_price = service.base_price
+        selected_items = Item.query.filter(Item.id.in_(form.item_ids.data)).all() if form.item_ids.data else []
+        for item in selected_items:
+            final_price += item.price
+        appointment.final_price = final_price
+        
+        # Actualizar items adicionales
+        appointment.items = selected_items
 
         db.session.commit()
         guardarBackUpTurnos()
-        flash("Turno actualizado.")
+        flash(f"Turno actualizado. Total: ${final_price:,.0f}")
         return redirect(url_for('main.vista_turnos'))
 
-    # Un truco para pre-llenar la duración que no es un campo directo de la BD
+    # Pre-llenar los items y duración al cargar el formulario
     if request.method == 'GET':
+        form.item_ids.data = [item.id for item in appointment.items]
+        # Calcular duración actual en minutos
         duration_minutes = (appointment.end_time - appointment.start_time).seconds // 60
         form.duration.data = duration_minutes
 
@@ -272,3 +328,127 @@ def add_note():
     db.session.add(new_note)
     db.session.commit()
     return redirect(url_for('main.view_dog', dog_id=dog_id))
+
+
+#-------- Rutas de Gestión de Servicios --------#
+
+@main.route('/services')
+@login_required
+def list_services():
+    """Vista para listar todos los servicios"""
+    services = Service.query.all()
+    return render_template('services/list.html', services=services)
+
+@main.route('/services/add', methods=['GET', 'POST'])
+@login_required
+def add_service():
+    """Agregar un nuevo servicio"""
+    form = ServiceForm()
+    if form.validate_on_submit():
+        new_service = Service(
+            name=form.name.data,
+            description=form.description.data,
+            base_price=form.base_price.data,
+            duration_minutes=form.duration_minutes.data,
+            is_active=bool(form.is_active.data)
+        )
+        db.session.add(new_service)
+        db.session.commit()
+        flash(f'Servicio "{new_service.name}" agregado exitosamente.')
+        return redirect(url_for('main.list_services'))
+    
+    return render_template('services/form.html', form=form, title='Agregar Servicio')
+
+@main.route('/services/edit/<int:service_id>', methods=['GET', 'POST'])
+@login_required
+def edit_service(service_id):
+    """Editar un servicio existente"""
+    service = Service.query.get_or_404(service_id)
+    form = ServiceForm(obj=service)
+    
+    if form.validate_on_submit():
+        service.name = form.name.data
+        service.description = form.description.data
+        service.base_price = form.base_price.data
+        service.duration_minutes = form.duration_minutes.data
+        service.is_active = bool(form.is_active.data)
+        
+        db.session.commit()
+        flash(f'Servicio "{service.name}" actualizado.')
+        return redirect(url_for('main.list_services'))
+    
+    # Pre-llenar el campo is_active
+    if request.method == 'GET':
+        form.is_active.data = 1 if service.is_active else 0
+    
+    return render_template('services/form.html', form=form, title='Editar Servicio', service=service)
+
+@main.route('/services/delete/<int:service_id>', methods=['POST'])
+@login_required
+def delete_service(service_id):
+    """Desactivar un servicio"""
+    service = Service.query.get_or_404(service_id)
+    service.is_active = False
+    db.session.commit()
+    flash(f'Servicio "{service.name}" desactivado.')
+    return redirect(url_for('main.list_services'))
+
+
+#-------- Rutas de Gestión de Items Adicionales --------#
+
+@main.route('/items')
+@login_required
+def list_items():
+    """Vista para listar todos los items adicionales"""
+    items = Item.query.all()
+    return render_template('items/list.html', items=items)
+
+@main.route('/items/add', methods=['GET', 'POST'])
+@login_required
+def add_item():
+    """Agregar un nuevo item adicional"""
+    form = ItemForm()
+    if form.validate_on_submit():
+        new_item = Item(
+            name=form.name.data,
+            price=form.price.data,
+            is_active=bool(form.is_active.data)
+        )
+        db.session.add(new_item)
+        db.session.commit()
+        flash(f'Item "{new_item.name}" agregado exitosamente.')
+        return redirect(url_for('main.list_items'))
+    
+    return render_template('items/form.html', form=form, title='Agregar Adicional')
+
+@main.route('/items/edit/<int:item_id>', methods=['GET', 'POST'])
+@login_required
+def edit_item(item_id):
+    """Editar un item adicional existente"""
+    item = Item.query.get_or_404(item_id)
+    form = ItemForm(obj=item)
+    
+    if form.validate_on_submit():
+        item.name = form.name.data
+        item.price = form.price.data
+        item.is_active = bool(form.is_active.data)
+        
+        db.session.commit()
+        flash(f'Item "{item.name}" actualizado.')
+        return redirect(url_for('main.list_items'))
+    
+    # Pre-llenar el campo is_active
+    if request.method == 'GET':
+        form.is_active.data = 1 if item.is_active else 0
+    
+    return render_template('items/form.html', form=form, title='Editar Adicional', item=item)
+
+@main.route('/items/delete/<int:item_id>', methods=['POST'])
+@login_required
+def delete_item(item_id):
+    """Desactivar un item adicional"""
+    item = Item.query.get_or_404(item_id)
+    item.is_active = False
+    db.session.commit()
+    flash(f'Item "{item.name}" desactivado.')
+    return redirect(url_for('main.list_items'))
