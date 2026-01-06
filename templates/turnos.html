@@ -34,20 +34,18 @@
               <input type="radio" name="service_id" value="{{ service.id }}" id="service_{{ service.id }}"
                 class="peer sr-only" required>
               <label for="service_{{ service.id }}"
-                class="flex flex-col gap-1 p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-blue-400 hover:shadow-sm transition-all duration-200 peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-checked:shadow-md">
-                <div class="flex items-center gap-2">
-                  <div
-                    class="w-5 h-5 border-2 border-gray-400 rounded-full peer-checked:border-blue-600 peer-checked:bg-blue-600 transition-all duration-200 flex items-center justify-center">
-                    <div
-                      class="w-2.5 h-2.5 bg-white rounded-full scale-0 peer-checked:scale-100 transition-transform duration-200">
-                    </div>
-                  </div>
-                  <span class="text-sm font-semibold text-gray-700 peer-checked:text-blue-700 transition-colors">
-                    {{ service.size.name }}
-                  </span>
-                </div>
-                <span class="text-xs text-gray-500 ml-7">${{ service.base_price|int|format_number }}</span>
+                class="block p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-blue-400 hover:shadow-sm transition-all duration-200 peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-checked:shadow-md">
+                <span class="block text-sm font-semibold text-gray-700">{{ service.size.name }}</span>
+                <span class="block text-lg font-bold text-blue-600 mt-1">${{ service.base_price|int|format_number
+                  }}</span>
               </label>
+              <!-- Checkmark badge -->
+              <div
+                class="absolute top-2 right-2 w-5 h-5 bg-blue-600 rounded-full items-center justify-center hidden peer-checked:flex">
+                <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+                </svg>
+              </div>
             </div>
             {% endfor %}
           </div>
