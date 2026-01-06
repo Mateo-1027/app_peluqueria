@@ -9,12 +9,22 @@
     <form method="POST" class="space-y-4">
         {{ form.csrf_token }}
 
-        <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Nombre del Servicio</label>
-            {{ form.name(class="w-full p-2 rounded border focus:ring focus:ring-blue-200") }}
-            {% if form.name.errors %}
-            <span class="text-red-500 text-xs">{{ form.name.errors[0] }}</span>
-            {% endif %}
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Categoría</label>
+                {{ form.category_id(class="w-full p-2 rounded border focus:ring focus:ring-blue-200") }}
+                {% if form.category_id.errors %}
+                <span class="text-red-500 text-xs">{{ form.category_id.errors[0] }}</span>
+                {% endif %}
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Tamaño</label>
+                {{ form.size_id(class="w-full p-2 rounded border focus:ring focus:ring-blue-200") }}
+                {% if form.size_id.errors %}
+                <span class="text-red-500 text-xs">{{ form.size_id.errors[0] }}</span>
+                {% endif %}
+            </div>
         </div>
 
         <div>

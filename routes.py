@@ -3,10 +3,10 @@
 from flask import Blueprint, render_template, request, redirect, jsonify, url_for, flash
 from flask_login import login_user, login_required, logout_user, current_user
 from extensions import db, login_manager # Importa las extensiones
-from models import User, Dog, Appointment, MedicalNote, Service, Item # Importa las clases de modelos
+from models import User, Dog, Appointment, MedicalNote, Service, ServiceCategory, ServiceSize, Item # Importa las clases de modelos
 from utils import guardarBackUpTurnos # Importa la función de utilidad
 from datetime import datetime, timedelta
-from forms import LoginForm, DogForm, AppointmentForm, ServiceForm, ItemForm
+from forms import LoginForm, DogForm, AppointmentForm, ServiceForm, ServiceCategoryForm, ServiceSizeForm, ItemForm
 
 # Crear un Blueprint
 main = Blueprint('main', __name__)
@@ -57,13 +57,21 @@ def vista_turnos():
     items = Item.query.filter_by(is_active=True).all()
     users = User.query.all()  # Todas las peluqueras
     
+    # Agrupar servicios por categoría
+    categories = ServiceCategory.query.filter_by(is_active=True).order_by(ServiceCategory.display_order).all()
+    services_by_category = {}
+    for category in categories:
+        category_services = [s for s in services if s.category_id == category.id]
+        if category_services:
+            services_by_category[category] = category_services
+    
     form = AppointmentForm()
     form.dog_id.choices = [(d.id, f"{d.name} ({d.owner_name or 'Sin dueño'})") for d in dogs]
     form.service_id.choices = [(s.id, f"{s.name} - ${s.base_price:,.0f}") for s in services]
     form.item_ids.choices = [(i.id, f"{i.name} (+${i.price:,.0f})") for i in items]
     form.user_id.choices = [(u.id, u.username) for u in users]
 
-    return render_template('turnos.html', dogs=dogs, form=form)
+    return render_template('turnos.html', dogs=dogs, form=form, services_by_category=services_by_category)
 
 @main.route('/api/dogs')
 @login_required
@@ -344,9 +352,17 @@ def list_services():
 def add_service():
     """Agregar un nuevo servicio"""
     form = ServiceForm()
+    
+    # Cargar opciones para categorías y tamaños
+    categories = ServiceCategory.query.filter_by(is_active=True).order_by(ServiceCategory.display_order).all()
+    sizes = ServiceSize.query.filter_by(is_active=True).order_by(ServiceSize.display_order).all()
+    form.category_id.choices = [(c.id, c.name) for c in categories]
+    form.size_id.choices = [(s.id, s.name) for s in sizes]
+    
     if form.validate_on_submit():
         new_service = Service(
-            name=form.name.data,
+            category_id=form.category_id.data,
+            size_id=form.size_id.data,
             description=form.description.data,
             base_price=form.base_price.data,
             duration_minutes=form.duration_minutes.data,
@@ -366,8 +382,15 @@ def edit_service(service_id):
     service = Service.query.get_or_404(service_id)
     form = ServiceForm(obj=service)
     
+    # Cargar opciones para categorías y tamaños
+    categories = ServiceCategory.query.filter_by(is_active=True).order_by(ServiceCategory.display_order).all()
+    sizes = ServiceSize.query.filter_by(is_active=True).order_by(ServiceSize.display_order).all()
+    form.category_id.choices = [(c.id, c.name) for c in categories]
+    form.size_id.choices = [(s.id, s.name) for s in sizes]
+    
     if form.validate_on_submit():
-        service.name = form.name.data
+        service.category_id = form.category_id.data
+        service.size_id = form.size_id.data
         service.description = form.description.data
         service.base_price = form.base_price.data
         service.duration_minutes = form.duration_minutes.data
@@ -391,6 +414,17 @@ def delete_service(service_id):
     service.is_active = False
     db.session.commit()
     flash(f'Servicio "{service.name}" desactivado.')
+    return redirect(url_for('main.list_services'))
+
+@main.route('/services/permanent_delete/<int:service_id>', methods=['POST'])
+@login_required
+def permanent_delete_service(service_id):
+    """Eliminar permanentemente un servicio"""
+    service = Service.query.get_or_404(service_id)
+    service_name = service.name
+    db.session.delete(service)
+    db.session.commit()
+    flash(f'Servicio "{service_name}" eliminado permanentemente.')
     return redirect(url_for('main.list_services'))
 
 
@@ -452,3 +486,127 @@ def delete_item(item_id):
     db.session.commit()
     flash(f'Item "{item.name}" desactivado.')
     return redirect(url_for('main.list_items'))
+
+
+#-------- Rutas de Gestión de Categorías de Servicio --------#
+
+@main.route('/services/categories')
+@login_required
+def list_categories():
+    """Vista para listar todas las categorías de servicio"""
+    categories = ServiceCategory.query.order_by(ServiceCategory.display_order).all()
+    return render_template('services/categories_list.html', categories=categories)
+
+@main.route('/services/categories/add', methods=['GET', 'POST'])
+@login_required
+def add_category():
+    """Agregar una nueva categoría de servicio"""
+    form = ServiceCategoryForm()
+    if form.validate_on_submit():
+        new_category = ServiceCategory(
+            name=form.name.data,
+            description=form.description.data,
+            display_order=form.display_order.data or 0,
+            is_active=bool(form.is_active.data)
+        )
+        db.session.add(new_category)
+        db.session.commit()
+        flash(f'Categoría "{new_category.name}" agregada exitosamente.')
+        return redirect(url_for('main.list_categories'))
+    
+    return render_template('services/category_form.html', form=form, title='Agregar Categoría')
+
+@main.route('/services/categories/edit/<int:category_id>', methods=['GET', 'POST'])
+@login_required
+def edit_category(category_id):
+    """Editar una categoría de servicio existente"""
+    category = ServiceCategory.query.get_or_404(category_id)
+    form = ServiceCategoryForm(obj=category)
+    
+    if form.validate_on_submit():
+        category.name = form.name.data
+        category.description = form.description.data
+        category.display_order = form.display_order.data or 0
+        category.is_active = bool(form.is_active.data)
+        
+        db.session.commit()
+        flash(f'Categoría "{category.name}" actualizada.')
+        return redirect(url_for('main.list_categories'))
+    
+    # Pre-llenar campos
+    if request.method == 'GET':
+        form.is_active.data = 1 if category.is_active else 0
+        form.display_order.data = category.display_order
+    
+    return render_template('services/category_form.html', form=form, title='Editar Categoría', category=category)
+
+@main.route('/services/categories/delete/<int:category_id>', methods=['POST'])
+@login_required
+def delete_category(category_id):
+    """Desactivar una categoría de servicio"""
+    category = ServiceCategory.query.get_or_404(category_id)
+    category.is_active = False
+    db.session.commit()
+    flash(f'Categoría "{category.name}" desactivada.')
+    return redirect(url_for('main.list_categories'))
+
+
+#-------- Rutas de Gestión de Tamaños de Servicio --------#
+
+@main.route('/services/sizes')
+@login_required
+def list_sizes():
+    """Vista para listar todos los tamaños de servicio"""
+    sizes = ServiceSize.query.order_by(ServiceSize.display_order).all()
+    return render_template('services/sizes_list.html', sizes=sizes)
+
+@main.route('/services/sizes/add', methods=['GET', 'POST'])
+@login_required
+def add_size():
+    """Agregar un nuevo tamaño de servicio"""
+    form = ServiceSizeForm()
+    if form.validate_on_submit():
+        new_size = ServiceSize(
+            name=form.name.data,
+            display_order=form.display_order.data or 0,
+            is_active=bool(form.is_active.data)
+        )
+        db.session.add(new_size)
+        db.session.commit()
+        flash(f'Tamaño "{new_size.name}" agregado exitosamente.')
+        return redirect(url_for('main.list_sizes'))
+    
+    return render_template('services/size_form.html', form=form, title='Agregar Tamaño')
+
+@main.route('/services/sizes/edit/<int:size_id>', methods=['GET', 'POST'])
+@login_required
+def edit_size(size_id):
+    """Editar un tamaño de servicio existente"""
+    size = ServiceSize.query.get_or_404(size_id)
+    form = ServiceSizeForm(obj=size)
+    
+    if form.validate_on_submit():
+        size.name = form.name.data
+        size.display_order = form.display_order.data or 0
+        size.is_active = bool(form.is_active.data)
+        
+        db.session.commit()
+        flash(f'Tamaño "{size.name}" actualizado.')
+        return redirect(url_for('main.list_sizes'))
+    
+    # Pre-llenar campos
+    if request.method == 'GET':
+        form.is_active.data = 1 if size.is_active else 0
+        form.display_order.data = size.display_order
+    
+    return render_template('services/size_form.html', form=form, title='Editar Tamaño', size=size)
+
+@main.route('/services/sizes/delete/<int:size_id>', methods=['POST'])
+@login_required
+def delete_size(size_id):
+    """Desactivar un tamaño de servicio"""
+    size = ServiceSize.query.get_or_404(size_id)
+    size.is_active = False
+    db.session.commit()
+    flash(f'Tamaño "{size.name}" desactivado.')
+    return redirect(url_for('main.list_sizes'))

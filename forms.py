@@ -29,12 +29,26 @@ class AppointmentForm(FlaskForm):
 
 # Formularios para gestión de Servicios e Items
 class ServiceForm(FlaskForm):
-    name = StringField('Nombre del Servicio', validators=[DataRequired(), Length(max=100)])
+    category_id = SelectField('Categoría', coerce=int, validators=[DataRequired()])
+    size_id = SelectField('Tamaño', coerce=int, validators=[DataRequired()])
     description = TextAreaField('Descripción', validators=[Optional()])
     base_price = IntegerField('Precio Base', validators=[DataRequired(), NumberRange(min=0)])
     duration_minutes = IntegerField('Duración Estimada (min)', validators=[Optional(), NumberRange(min=15)])
     is_active = SelectField('Estado', choices=[(1, 'Activo'), (0, 'Inactivo')], coerce=int)
     submit = SubmitField('Guardar Servicio')
+
+class ServiceCategoryForm(FlaskForm):
+    name = StringField('Nombre de la Categoría', validators=[DataRequired(), Length(max=100)])
+    description = TextAreaField('Descripción', validators=[Optional()])
+    display_order = IntegerField('Orden de Visualización', validators=[Optional(), NumberRange(min=0)])
+    is_active = SelectField('Estado', choices=[(1, 'Activo'), (0, 'Inactivo')], coerce=int)
+    submit = SubmitField('Guardar Categoría')
+
+class ServiceSizeForm(FlaskForm):
+    name = StringField('Nombre del Tamaño', validators=[DataRequired(), Length(max=50)])
+    display_order = IntegerField('Orden de Visualización', validators=[Optional(), NumberRange(min=0)])
+    is_active = SelectField('Estado', choices=[(1, 'Activo'), (0, 'Inactivo')], coerce=int)
+    submit = SubmitField('Guardar Tamaño')
 
 class ItemForm(FlaskForm):
     name = StringField('Nombre del Adicional', validators=[DataRequired(), Length(max=100)])

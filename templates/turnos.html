@@ -24,47 +24,79 @@
 
       <div class="md:col-span-2">
         <label class="block text-sm font-medium text-gray-700 mb-3">Servicio</label>
-        <div class="grid grid-cols-2 gap-3">
-          {% for value, label in form.service_id.choices %}
-          <label
-            class="group relative flex items-center p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-blue-400 hover:shadow-sm transition-all duration-200 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50 has-[:checked]:shadow-md">
-            <input type="radio" name="service_id" value="{{ value }}" class="sr-only peer" required>
-            <div class="flex items-center gap-3 w-full">
-              <div
-                class="relative flex-shrink-0 w-5 h-5 border-2 border-gray-300 rounded-full group-hover:border-blue-400 peer-checked:border-blue-600 peer-checked:bg-blue-600 transition-all duration-200">
-                <svg
-                  class="absolute inset-0 w-full h-full text-white opacity-0 peer-checked:opacity-100 transition-opacity duration-200"
-                  viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd"
-                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                    clip-rule="evenodd" />
-                </svg>
-              </div>
-              <span
-                class="text-sm font-semibold text-gray-700 group-hover:text-blue-600 peer-checked:text-blue-700 transition-colors duration-200">{{
-                label }}</span>
+
+        {% for category, services in services_by_category.items() %}
+        <div class="mb-4">
+          <h3 class="font-semibold text-gray-800 mb-2 text-base">{{ category.name }}</h3>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {% for service in services|sort(attribute='size.display_order') %}
+            <div class="relative">
+              <input type="radio" name="service_id" value="{{ service.id }}" id="service_{{ service.id }}"
+                class="peer sr-only" required>
+              <label for="service_{{ service.id }}"
+                class="flex flex-col gap-1 p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-blue-400 hover:shadow-sm transition-all duration-200 peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-checked:shadow-md">
+                <div class="flex items-center gap-2">
+                  <div
+                    class="w-5 h-5 border-2 border-gray-400 rounded-full peer-checked:border-blue-600 peer-checked:bg-blue-600 transition-all duration-200 flex items-center justify-center">
+                    <div
+                      class="w-2.5 h-2.5 bg-white rounded-full scale-0 peer-checked:scale-100 transition-transform duration-200">
+                    </div>
+                  </div>
+                  <span class="text-sm font-semibold text-gray-700 peer-checked:text-blue-700 transition-colors">
+                    {{ service.size.name }}
+                  </span>
+                </div>
+                <span class="text-xs text-gray-500 ml-7">${{ service.base_price|int|format_number }}</span>
+              </label>
             </div>
-          </label>
-          {% endfor %}
+            {% endfor %}
+          </div>
         </div>
+        {% endfor %}
+
         {% if form.service_id.errors %}
         <span class="text-red-500 text-xs">{{ form.service_id.errors[0] }}</span>
         {% endif %}
       </div>
 
       <div class="md:col-span-2">
-        <label class="block text-sm font-medium text-gray-700 mb-3">Adicionales</label>
-        <div class="grid grid-cols-2 gap-2">
-          {% for value, label in form.item_ids.choices %}
-          <label
-            class="flex items-center p-2 border rounded-lg cursor-pointer hover:bg-green-50 transition has-[:checked]:border-green-600 has-[:checked]:bg-green-50">
-            <input type="checkbox" name="item_ids" value="{{ value }}"
-              class="mr-2 w-4 h-4 text-green-600 rounded focus:ring-green-500">
-            <span class="text-sm">{{ label }}</span>
-          </label>
-          {% endfor %}
+        <button type="button" onclick="toggleAdditionals()"
+          class="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition">
+          <span class="text-sm font-medium text-gray-700">Adicionales</span>
+          <svg id="additionals-icon" class="w-5 h-5 text-gray-500 transition-transform duration-200" fill="none"
+            stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+          </svg>
+        </button>
+
+        <div id="additionals-section" class="hidden mt-3">
+          <div class="grid grid-cols-2 gap-2">
+            {% for value, label in form.item_ids.choices %}
+            <label
+              class="flex items-center p-2 border rounded-lg cursor-pointer hover:bg-green-50 transition has-[:checked]:border-green-600 has-[:checked]:bg-green-50">
+              <input type="checkbox" name="item_ids" value="{{ value }}"
+                class="mr-2 w-4 h-4 text-green-600 rounded focus:ring-green-500">
+              <span class="text-sm">{{ label }}</span>
+            </label>
+            {% endfor %}
+          </div>
         </div>
       </div>
+
+      <script>
+        function toggleAdditionals() {
+          const section = document.getElementById('additionals-section');
+          const icon = document.getElementById('additionals-icon');
+
+          if (section.classList.contains('hidden')) {
+            section.classList.remove('hidden');
+            icon.style.transform = 'rotate(180deg)';
+          } else {
+            section.classList.add('hidden');
+            icon.style.transform = 'rotate(0deg)';
+          }
+        }
+      </script>
 
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-2">Peluquera</label>

@@ -6,10 +6,20 @@
 <div class="bg-white rounded-2xl shadow p-6">
     <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold">Servicios</h1>
-        <a href="{{ url_for('main.add_service') }}"
-            class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded font-semibold">
-            + Agregar Servicio
-        </a>
+        <div class="flex gap-2">
+            <a href="{{ url_for('main.list_categories') }}"
+                class="bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded font-semibold">
+                Gestionar Categorías
+            </a>
+            <a href="{{ url_for('main.list_sizes') }}"
+                class="bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded font-semibold">
+                Gestionar Tamaños
+            </a>
+            <a href="{{ url_for('main.add_service') }}"
+                class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded font-semibold">
+                + Agregar Servicio
+            </a>
+        </div>
     </div>
 
     {% with messages = get_flashed_messages() %}
@@ -22,44 +32,98 @@
     {% endif %}
     {% endwith %}
 
-    <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Precio</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Duración</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                {% for service in services %}
-                <tr class="{% if not service.is_active %}bg-gray-100 text-gray-400{% endif %}">
-                    <td class="px-6 py-4">{{ service.name }}</td>
-                    <td class="px-6 py-4">${{ "{:,.0f}".format(service.base_price) }}</td>
-                    <td class="px-6 py-4">{{ service.duration_minutes or '-' }} min</td>
-                    <td class="px-6 py-4">
-                        <span
-                            class="px-2 py-1 text-xs rounded {% if service.is_active %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
-                            {{ 'Activo' if service.is_active else 'Inactivo' }}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4 text-sm">
-                        <a href="{{ url_for('main.edit_service', service_id=service.id) }}"
-                            class="text-blue-600 hover:text-blue-900 mr-3">Editar</a>
-                        {% if service.is_active %}
-                        <form action="{{ url_for('main.delete_service', service_id=service.id) }}" method="POST"
-                            class="inline">
-                            <button type="submit" class="text-red-600 hover:text-red-900"
-                                onclick="return confirm('¿Desactivar este servicio?')">Desactivar</button>
-                        </form>
+    {% set services_by_category = {} %}
+    {% for service in services %}
+    {% if service.category not in services_by_category %}
+    {% set _ = services_by_category.update({service.category: []}) %}
+    {% endif %}
+    {% set _ = services_by_category[service.category].append(service) %}
+    {% endfor %}
+
+    <div class="space-y-6">
+        {% for category, category_services in services_by_category.items()|sort(attribute='0.display_order') %}
+        <div class="border border-gray-200 rounded-lg overflow-hidden">
+            <!-- Category Header -->
+            <div class="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
+                <h2 class="text-xl font-bold text-gray-800">{{ category.name }}</h2>
+                {% if category.description %}
+                <p class="text-sm text-gray-600 mt-1">{{ category.description }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Services Grid -->
+            <div class="p-4 bg-gray-50">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {% for service in category_services|sort(attribute='size.display_order') %}
+                    <div
+                        class="bg-white border-2 rounded-lg p-4 hover:shadow-md transition-shadow {% if not service.is_active %}opacity-50 border-gray-300{% else %}border-blue-200{% endif %}">
+                        <div class="flex items-start justify-between mb-2">
+                            <div>
+                                <h3 class="font-semibold text-gray-800 text-lg">{{ service.size.name }}</h3>
+                                <p class="text-2xl font-bold text-blue-600 mt-1">${{
+                                    "{:,.0f}".format(service.base_price) }}</p>
+                            </div>
+                            <span
+                                class="px-2 py-1 text-xs rounded-full {% if service.is_active %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                {{ 'Activo' if service.is_active else 'Inactivo' }}
+                            </span>
+                        </div>
+
+                        <div class="text-sm text-gray-600 mb-3">
+                            <span class="inline-flex items-center gap-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                {{ service.duration_minutes or '-' }} min
+                            </span>
+                        </div>
+
+                        {% if service.description %}
+                        <p class="text-xs text-gray-500 mb-3 line-clamp-2">{{ service.description }}</p>
                         {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+
+                        <div class="flex gap-2 pt-2 border-t border-gray-200">
+                            <a href="{{ url_for('main.edit_service', service_id=service.id) }}"
+                                class="flex-1 text-center text-sm text-blue-600 hover:text-blue-800 font-medium py-1 px-2 rounded hover:bg-blue-50 transition">
+                                Editar
+                            </a>
+                            {% if service.is_active %}
+                            <form action="{{ url_for('main.delete_service', service_id=service.id) }}" method="POST"
+                                class="flex-1">
+                                <button type="submit"
+                                    class="w-full text-sm text-red-600 hover:text-red-800 font-medium py-1 px-2 rounded hover:bg-red-50 transition"
+                                    onclick="return confirm('¿Desactivar este servicio?')">
+                                    Desactivar
+                                </button>
+                            </form>
+                            {% else %}
+                            <form action="{{ url_for('main.permanent_delete_service', service_id=service.id) }}"
+                                method="POST" class="flex-1">
+                                <button type="submit"
+                                    class="w-full text-sm text-red-700 hover:text-red-900 font-bold py-1 px-2 rounded hover:bg-red-100 transition border border-red-400"
+                                    onclick="return confirm(' ¿Eliminar PERMANENTEMENTE este servicio? Esta acción no se puede deshacer.')">
+                                    Eliminar
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
     </div>
+
+    {% if not services %}
+    <div class="text-center py-12 text-gray-500">
+        <p class="text-lg">No hay servicios disponibles.</p>
+        <a href="{{ url_for('main.add_service') }}"
+            class="text-blue-600 hover:text-blue-800 font-medium mt-2 inline-block">
+            Agregar el primer servicio
+        </a>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

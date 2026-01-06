@@ -24,14 +24,39 @@ appointment_items = db.Table('appointment_items',
     db.Column('item_id', db.Integer, db.ForeignKey('item.id'), primary_key=True)
 )
 
-class Service(db.Model):
-    """Servicios estándar ofrecidos (Corte pequeño, mediano, grande, etc)"""
+class ServiceCategory(db.Model):
+    """Categorías de servicio (Baño, Baño y Deslanado, Baño y Corte, etc)"""
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)  # "Corte y Baño Grande"
-    description = db.Column(db.Text)  # Descripción detallada del servicio
+    name = db.Column(db.String(100), nullable=False)  # "Baño", "Baño y Corte", etc.
+    description = db.Column(db.Text)  # Descripción de la categoría
+    is_active = db.Column(db.Boolean, default=True)
+    display_order = db.Column(db.Integer, default=0)  # Para ordenar en la UI
+
+class ServiceSize(db.Model):
+    """Tamaños de servicio (Chico, Mediano, Mediano/Grande, Gigante)"""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), nullable=False)  # "Chico", "Mediano", etc.
+    is_active = db.Column(db.Boolean, default=True)
+    display_order = db.Column(db.Integer, default=0)  # Para ordenar en la UI
+
+class Service(db.Model):
+    """Servicios = Categoría + Tamaño"""
+    id = db.Column(db.Integer, primary_key=True)
+    category_id = db.Column(db.Integer, db.ForeignKey('service_category.id'), nullable=False)
+    size_id = db.Column(db.Integer, db.ForeignKey('service_size.id'), nullable=False)
+    description = db.Column(db.Text)  # Descripción específica (opcional)
     base_price = db.Column(db.Float, nullable=False)  # Precio base del servicio
     duration_minutes = db.Column(db.Integer, default=60)  # Duración estimada
     is_active = db.Column(db.Boolean, default=True)  # Para ocultar servicios viejos
+    
+    # Relationships
+    category = db.relationship('ServiceCategory', backref='services')
+    size = db.relationship('ServiceSize', backref='services')
+    
+    @property
+    def name(self):
+        """Genera el nombre del servicio a partir de categoría y tamaño"""
+        return f"{self.category.name} - {self.size.name}"
 
 class Item(db.Model):
     """Items adicionales que se pueden agregar a un turno (Desanudado, Corte de uñas, etc)"""
