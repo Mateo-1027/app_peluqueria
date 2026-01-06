@@ -38,7 +38,8 @@
     <ul class="divide-y divide-gray-200">
       {% for note in notes %}
       <li class="py-2 px-2 hover:bg-gray-100 cursor-pointer rounded transition"
-        onclick="openNoteModal('{{ note.date.strftime('%d/%m/%Y') }}', `{{ note.note | replace('`', '') | replace('\n', ' ') }}`)">
+        data-date="{{ note.date.strftime('%d/%m/%Y') }}" data-note="{{ note.note | default('', true) }}"
+        onclick="openNoteModal(this.dataset.date, this.dataset.note)">
         <div class="flex items-center justify-between">
           <span class="font-medium text-blue-600">{{ note.date.strftime('%d/%m/%Y') }}</span>
           <span class="text-gray-400 text-sm">Clic para ver</span>
