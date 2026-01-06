@@ -27,14 +27,22 @@
         <div class="grid grid-cols-2 gap-3">
           {% for value, label in form.service_id.choices %}
           <label
-            class="relative flex items-center p-3 border-2 rounded-lg cursor-pointer hover:bg-blue-50 transition has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50">
+            class="group relative flex items-center p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-blue-400 hover:shadow-sm transition-all duration-200 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50 has-[:checked]:shadow-md">
             <input type="radio" name="service_id" value="{{ value }}" class="sr-only peer" required>
-            <div class="flex items-center gap-2 w-full">
+            <div class="flex items-center gap-3 w-full">
               <div
-                class="w-4 h-4 border-2 rounded-full peer-checked:border-blue-600 peer-checked:bg-blue-600 flex items-center justify-center">
-                <div class="w-2 h-2 bg-white rounded-full hidden peer-checked:block"></div>
+                class="relative flex-shrink-0 w-5 h-5 border-2 border-gray-300 rounded-full group-hover:border-blue-400 peer-checked:border-blue-600 peer-checked:bg-blue-600 transition-all duration-200">
+                <svg
+                  class="absolute inset-0 w-full h-full text-white opacity-0 peer-checked:opacity-100 transition-opacity duration-200"
+                  viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd"
+                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                    clip-rule="evenodd" />
+                </svg>
               </div>
-              <span class="text-sm font-medium flex-grow peer-checked:text-blue-700">{{ label }}</span>
+              <span
+                class="text-sm font-semibold text-gray-700 group-hover:text-blue-600 peer-checked:text-blue-700 transition-colors duration-200">{{
+                label }}</span>
             </div>
           </label>
           {% endfor %}
@@ -93,41 +101,76 @@
   </form>
 
   <!-- Calendario -->
-  <div id="calendar" class="bg-white p-4 rounded shadow min-h-[500px]"></div>
-</div>
-{% endblock %}
 
-{% block scripts %}
-<script>
-  document.addEventListener('DOMContentLoaded', function () {
-    const calendarEl = document.getElementById('calendar');
-    const calendar = new FullCalendar.Calendar(calendarEl, {
-      initialView: 'dayGridMonth',
-      locale: 'es',
-      headerToolbar: {
-        left: 'prev,next today',
-        center: 'title',
-        right: 'dayGridMonth,timeGridWeek'
-      },
-      events: '/appointments',
-      eventClick: function (info) {
-        const appointmentId = info.event.id;
-        window.location.href = `/appointments/edit/${appointmentId}`;
-      },
-      eventDidMount: function (info) {
-        const start = new Date(info.event.start).toLocaleString('es-AR', {
-          day: '2-digit', month: '2-digit', year: 'numeric',
-          hour: '2-digit', minute: '2-digit'
-        });
-        const end = new Date(info.event.end).toLocaleTimeString('es-AR', {
-          hour: '2-digit', minute: '2-digit'
-        });
-        const title = info.event.title;
-        const tooltip = `${title}\nInicio: ${start}\nFin: ${end}`;
-        info.el.setAttribute('title', tooltip);
-      }
+  <div class="flex flex-col lg:flex-row gap-6 h-[700px]">
+
+    <div class="w-full lg:w-1/2 xl:w-2/5">
+      <div class="bg-white p-4 rounded shadow h-full border border-gray-100">
+        <div id="mini-calendar"></div>
+      </div>
+    </div>
+
+    <div class="w-full lg:w-1/2 xl:w-3/5">
+      <div id="calendar" class="bg-white p-4 rounded shadow h-full border border-gray-100"></div>
+    </div>
+
+  </div>
+  {% endblock %}
+
+  {% block scripts %}
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const calendarEl = document.getElementById('calendar');
+      const miniCalendarEl = document.getElementById('mini-calendar');
+
+      // Calendario Principal (DERECHA)
+      const mainCalendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'timeGridDay',
+        locale: 'es',
+        slotMinTime: '08:00:00',
+        slotMaxTime: '21:00:00',
+        slotDuration: '00:15:00',
+        expandRows: true,
+        allDaySlot: false,
+        headerToolbar: {
+          left: 'prev,next today',
+          center: 'title',
+          right: 'timeGridDay,listDay'
+        },
+        events: '/appointments',
+        eventClick: function (info) {
+          window.location.href = `/appointments/edit/${info.event.id}`;
+        },
+        eventDidMount: function (info) {
+          const start = new Date(info.event.start).toLocaleString('es-AR', { hour: '2-digit', minute: '2-digit' });
+          const end = new Date(info.event.end).toLocaleString('es-AR', { hour: '2-digit', minute: '2-digit' });
+          info.el.setAttribute('title', `${info.event.title}\n${start} - ${end}`);
+        }
+      });
+
+      // Calendario Mini (IZQUIERDA)
+      const miniCalendar = new FullCalendar.Calendar(miniCalendarEl, {
+        initialView: 'dayGridMonth',
+        locale: 'es',
+        contentHeight: 'auto',
+        headerToolbar: {
+          left: 'prev,next',
+          center: 'title',
+          right: ''
+        },
+        height: 'auto',
+        aspectRatio: 1.2,
+        events: '/appointments',
+        eventDisplay: 'background',
+        dateClick: function (info) {
+          mainCalendar.gotoDate(info.dateStr);
+          document.querySelectorAll('.fc-daygrid-day').forEach(el => el.style.backgroundColor = '');
+          info.dayEl.style.backgroundColor = '#eff6ff';
+        }
+      });
+
+      mainCalendar.render();
+      miniCalendar.render();
     });
-    calendar.render();
-  });
-</script>
-{% endblock %}
+  </script>
+  {% endblock %}
