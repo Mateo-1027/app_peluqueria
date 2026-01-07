@@ -12,8 +12,8 @@
   <h1 class="text-2xl font-bold mb-4">Gestor de Turnos</h1>
 
   <!-- Formulario agregar turno -->
-  <form action="{{ url_for('main.add_appointment') }}" method="POST"
-    class="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
+  <form id="appointment-form" action="{{ url_for('main.add_appointment') }}" method="POST"
+    class="mb-6 bg-gray-50 p-6 rounded-xl border border-gray-200">
     {{ form.csrf_token }}
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
@@ -103,10 +103,11 @@
 
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-2">Fecha y Hora</label>
-        {{ form.start_time(class="w-full p-2 rounded border focus:ring focus:ring-blue-200") }}
+        {{ form.start_time(class="w-full p-2 rounded border focus:ring focus:ring-blue-200", id="start_time") }}
         {% if form.start_time.errors %}
         <span class="text-red-500 text-xs">{{ form.start_time.errors[0] }}</span>
         {% endif %}
+        <p class="text-xs text-gray-500 mt-1">O haz click en el calendario →</p>
       </div>
 
       <div>
@@ -161,7 +162,7 @@
         locale: 'es',
         slotMinTime: '08:00:00',
         slotMaxTime: '21:00:00',
-        slotDuration: '00:15:00',
+        slotDuration: '00:10:00',
         expandRows: true,
         allDaySlot: false,
         headerToolbar: {
@@ -170,6 +171,23 @@
           right: 'timeGridDay,listDay'
         },
         events: '/appointments',
+
+        // Click en hora vacía para auto-llenar formulario
+        dateClick: function (info) {
+          // Formato para input datetime-local: "2026-01-07T14:30"
+          const dateTimeStr = info.dateStr.substring(0, 16);
+          const startTimeInput = document.getElementById('start_time');
+
+          if (startTimeInput) {
+            startTimeInput.value = dateTimeStr;
+            // Scroll suave al formulario
+            document.getElementById('appointment-form').scrollIntoView({
+              behavior: 'smooth',
+              block: 'start'
+            });
+          }
+        },
+
         eventClick: function (info) {
           window.location.href = `/appointments/edit/${info.event.id}`;
         },
