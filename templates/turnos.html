@@ -107,7 +107,6 @@
         {% if form.start_time.errors %}
         <span class="text-red-500 text-xs">{{ form.start_time.errors[0] }}</span>
         {% endif %}
-        <p class="text-xs text-gray-500 mt-1">O haz click en el calendario →</p>
       </div>
 
       <div>
@@ -117,7 +116,6 @@
         {% if form.duration.errors %}
         <span class="text-red-500 text-xs">{{ form.duration.errors[0] }}</span>
         {% endif %}
-        <p class="text-xs text-gray-500 mt-1">Usa las flechas ↑ ↓ para incrementar de 15 en 15 minutos</p>
       </div>
 
       <div class="md:col-span-2">
@@ -180,11 +178,9 @@
 
           if (startTimeInput) {
             startTimeInput.value = dateTimeStr;
-            // Scroll suave al formulario
-            document.getElementById('appointment-form').scrollIntoView({
-              behavior: 'smooth',
-              block: 'start'
-            });
+
+            // Mostrar toast de confirmación
+            showToast('Horario seleccionado');
           }
         },
 
@@ -238,5 +234,26 @@
       mainCalendar.render();
       miniCalendar.render();
     });
+
+    // Función para mostrar toast de confirmación
+    function showToast(message) {
+      // Eliminar toast anterior si existe
+      const existingToast = document.getElementById('toast-message');
+      if (existingToast) existingToast.remove();
+
+      // Crear toast
+      const toast = document.createElement('div');
+      toast.id = 'toast-message';
+      toast.className = 'fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-medium z-50 animate-fade-in';
+      toast.textContent = message;
+      document.body.appendChild(toast);
+
+      // Auto-ocultar después de 2 segundos
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+      }, 2000);
+    }
   </script>
   {% endblock %}
