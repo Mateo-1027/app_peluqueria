@@ -6,7 +6,7 @@
 <div class="bg-white rounded-2xl shadow p-6">
     <h1 class="text-2xl font-bold mb-4">Registro de Mascotas</h1>
 
-    <form action="{{ url_for('main.add_dog') }}" method="POST" class="grid grid-cols-2 gap-4 mb-6">
+    <form action="{{ url_for('main.add_dog') }}" method="POST" class="grid grid-cols-2 gap-4 mb-6 border-b pb-6">
         {{ form.csrf_token }}
         <input type="text" name="name" placeholder="Nombre del perro" required class="col-span-1 p-2 rounded border" />
         <input type="text" name="owner_name" placeholder="Nombre del dueño" required
@@ -17,37 +17,135 @@
         </button>
     </form>
 
-    <input type="text" id="search" onkeyup="filtrar()" placeholder="Buscar mascota..."
-        class="w-full p-2 mb-4 border rounded" />
+    <div class="flex gap-2 mb-4">
+        <div class="relative flex-1">
+            <input type="text" id="searchInput" placeholder="Buscar por Nombre o Legajo ..."
+                class="w-full p-2 pl-4 border rounded focus:ring-2 focus:ring-blue-200 focus:border-blue-400 transition" 
+                autocomplete="off"/>
+        </div>
+        
+        <button onclick="ejecutarBusqueda()" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded transition shadow-sm">
+            Buscar
+        </button>
+        
+        <button onclick="resetearBusqueda()" class="px-4 py-2 bg-white hover:bg-gray-100 text-gray-600 font-medium rounded transition border border-gray-300" title="Limpiar búsqueda">
+            Limpiar
+        </button>
+    </div>
 
-    <ul id="dogList" class="divide-y divide-gray-200">
-        {% for dog in dogs %}
-        <li class="py-3 dog-item flex items-center justify-between">
-            <a href="{{ url_for('main.view_dog', dog_id=dog.id) }}" class="flex-1 hover:text-blue-600">
-                <strong>{{ dog.name }}</strong> <span class="text-gray-500">({{ dog.owner_name }})</span>
-            </a>
-            <div class="flex gap-2">
-                <a href="{{ url_for('main.edit_dog', dog_id=dog.id) }}"
-                    class="text-blue-600 hover:underline text-sm">Editar</a>
-                <form action="{{ url_for('main.delete_dog', dog_id=dog.id) }}" method="POST"
-                    onsubmit="return confirm('¿Eliminar esta mascota?')" class="inline">
-                    <button type="submit" class="text-red-600 hover:underline text-sm">Eliminar</button>
-                </form>
-            </div>
-        </li>
-        {% endfor %}
-    </ul>
+    <div class="max-h-96 overflow-y-auto border rounded-lg bg-gray-50 p-2 min-h-[150px]">
+        
+        <div id="initialState" class="flex flex-col items-center justify-center h-32 text-gray-400">
+            <p>Utilizá el buscador para encontrar una mascota</p>
+        </div>
+
+        <ul id="dogList" class="divide-y divide-gray-200 hidden">
+            </ul>
+        
+        <div id="loadingMsg" class="hidden text-center py-8 text-gray-400">
+            <span class="inline-block animate-spin mr-2">⟳</span> Buscando...
+        </div>
+        <div id="noResults" class="hidden text-center py-8 text-gray-500">
+            No encontramos mascotas con esos datos.
+        </div>
+    </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    function filtrar() {
-        const input = document.getElementById('search').value.toLowerCase();
-        const items = document.querySelectorAll('.dog-item');
-        items.forEach(item => {
-            const text = item.textContent.toLowerCase();
-            item.style.display = text.includes(input) ? '' : 'none';
+    // 1. DEFINICIÓN DE VARIABLES (Fundamental para que no falle)
+    const searchInput = document.getElementById('searchInput');
+    const dogList = document.getElementById('dogList');
+    const initialState = document.getElementById('initialState');
+    const noResults = document.getElementById('noResults');
+    const loadingMsg = document.getElementById('loadingMsg');
+
+    // 2. DETECTAR ENTER EN EL INPUT
+    searchInput.addEventListener('keydown', function(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault(); // Evita que se envíe el formulario de arriba por error
+            ejecutarBusqueda();
+        }
+    });
+
+    // 3. FUNCIÓN DE BÚSQUEDA (Con manejo de errores visuales)
+    function ejecutarBusqueda() {
+        const query = searchInput.value.trim();
+        
+        // Ocultamos todo para mostrar el spinner de carga
+        if(initialState) initialState.classList.add('hidden');
+        noResults.classList.add('hidden');
+        dogList.classList.add('hidden');
+        loadingMsg.classList.remove('hidden');
+
+        fetch(`/api/dogs/search?q=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                renderizarLista(data);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error de conexión con el servidor.');
+            })
+            .finally(() => {
+                // Pase lo que pase, ocultamos el spinner
+                loadingMsg.classList.add('hidden');
+            });
+    }
+
+    // 4. FUNCIÓN LIMPIAR (Restaura el estado inicial)
+    function resetearBusqueda() {
+        searchInput.value = '';
+        
+        // Ocultamos resultados
+        dogList.classList.add('hidden');
+        dogList.innerHTML = ''; 
+        noResults.classList.add('hidden');
+        
+        // Mostramos el cartel de bienvenida de nuevo
+        if(initialState) initialState.classList.remove('hidden');
+        
+        // Ponemos el cursor en el input
+        searchInput.focus();
+    }
+
+    // 5. RENDERIZADO DE LA LISTA
+    function renderizarLista(dogs) {
+        dogList.innerHTML = ''; // Limpiar lista vieja
+        
+        if (dogs.length === 0) {
+            noResults.classList.remove('hidden');
+            return;
+        }
+
+        // Si hay perros, mostramos la lista
+        dogList.classList.remove('hidden');
+
+        dogs.forEach(dog => {
+            const viewUrl = `/dogs/${dog.id}`;
+            const editUrl = `/dogs/edit/${dog.id}`;
+            const deleteUrl = `/dogs/delete/${dog.id}`;
+
+            const li = document.createElement('li');
+            li.className = 'py-3 px-2 dog-item flex items-center justify-between hover:bg-white rounded transition border-b border-gray-100 last:border-0';
+            
+            li.innerHTML = `
+                <a href="${viewUrl}" class="flex-1 hover:text-blue-600 group">
+                    <div>
+                        <strong class="text-gray-800 group-hover:text-blue-600">${dog.name}</strong> 
+                        <span class="text-xs font-mono bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded ml-2 border border-blue-200">Legajo: ${dog.id}</span>
+                    </div>
+                    <span class="text-gray-500 text-sm">Dueño: ${dog.owner_name || 'No registrado'}</span>
+                </a>
+                <div class="flex gap-2 opacity-60 hover:opacity-100 transition-opacity">
+                    <a href="${editUrl}" class="text-blue-600 hover:underline text-sm font-medium px-2 py-1 rounded hover:bg-blue-50">Editar</a>
+                    <form action="${deleteUrl}" method="POST" onsubmit="return confirm('¿Eliminar esta mascota?')" class="inline">
+                        <button type="submit" class="text-red-600 hover:underline text-sm font-medium px-2 py-1 rounded hover:bg-red-50">Eliminar</button>
+                    </form>
+                </div>
+            `;
+            dogList.appendChild(li);
         });
     }
 </script>

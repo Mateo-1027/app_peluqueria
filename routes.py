@@ -7,6 +7,7 @@ from models import User, Dog, Appointment, MedicalNote, Service, ServiceCategory
 from utils import guardarBackUpTurnos # Importa la función de utilidad
 from datetime import datetime, timedelta
 from forms import LoginForm, DogForm, AppointmentForm, ServiceForm, ServiceCategoryForm, ServiceSizeForm, ItemForm
+from sqlalchemy import or_
 
 # Crear un Blueprint
 main = Blueprint('main', __name__)
@@ -45,8 +46,8 @@ def menu_inicio():
 @main.route('/mascotas')
 @login_required
 def vista_mascotas():
-    dogs = Dog.query.filter_by(is_deleted=False).all()
-    form = DogForm() # <--- Lo nuevo: Creamos el form vacío
+    dogs = []
+    form = DogForm() 
     return render_template('index.html', dogs=dogs, form=form)
 
 @main.route('/turnos')
@@ -336,6 +337,34 @@ def add_note():
     db.session.add(new_note)
     db.session.commit()
     return redirect(url_for('main.view_dog', dog_id=dog_id))
+
+@main.route('/api/dogs/search')
+@login_required
+def search_dogs_api():
+
+    query = request.args.get('q', '').strip()
+    base_query = Dog.query.filter_by(is_deleted=False)
+
+    if query:
+        if query.isdigit():
+            base_query = base_query.filter(
+                or_(
+                    Dog.name.ilike(f'%{query}%'),
+                    Dog.id == int(query)
+                )
+            )
+        else:
+            base_query = base_query.filter(Dog.name.ilike(f'%{query}%'))
+
+    results = base_query.order_by(Dog.name.asc()).limit(50).all()
+
+    dogs_data = [{
+        'id': d.id,
+        'name': d.name,
+        'owner_name': d.owner_name
+    }for d in results]
+
+    return jsonify(dogs_data)
 
 
 #-------- Rutas de Gestión de Servicios --------#
