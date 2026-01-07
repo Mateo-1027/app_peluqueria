@@ -6,13 +6,14 @@
 <div class="bg-white rounded-2xl shadow p-6">
     <h1 class="text-2xl font-bold mb-4">Registro de Mascotas</h1>
 
-    <form action="{{ url_for('main.add_dog') }}" method="POST" class="grid grid-cols-2 gap-4 mb-6 border-b pb-6">
+    <form action="{{ url_for('main.add_dog') }}" method="POST" class="grid grid-cols-3 gap-4 mb-6 border-b pb-6">
         {{ form.csrf_token }}
         <input type="text" name="name" placeholder="Nombre del perro" required class="col-span-1 p-2 rounded border" />
         <input type="text" name="owner_name" placeholder="Nombre del dueño" required
             class="col-span-1 p-2 rounded border" />
-        <textarea name="notes" placeholder="Notas" class="col-span-2 border p-2 rounded"></textarea>
-        <button type="submit" class="col-span-2 bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
+        <input type="text" name="owner_phone" placeholder="Teléfono" class="col-span-1 p-2 rounded border" />
+        <textarea name="notes" placeholder="Notas" class="col-span-3 border p-2 rounded"></textarea>
+        <button type="submit" class="col-span-3 bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
             Agregar Perro
         </button>
     </form>
@@ -20,28 +21,31 @@
     <div class="flex gap-2 mb-4">
         <div class="relative flex-1">
             <input type="text" id="searchInput" placeholder="Buscar por Nombre o Legajo ..."
-                class="w-full p-2 pl-4 border rounded focus:ring-2 focus:ring-blue-200 focus:border-blue-400 transition" 
-                autocomplete="off"/>
+                class="w-full p-2 pl-4 border rounded focus:ring-2 focus:ring-blue-200 focus:border-blue-400 transition"
+                autocomplete="off" />
         </div>
-        
-        <button onclick="ejecutarBusqueda()" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded transition shadow-sm">
+
+        <button onclick="ejecutarBusqueda()"
+            class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded transition shadow-sm">
             Buscar
         </button>
-        
-        <button onclick="resetearBusqueda()" class="px-4 py-2 bg-white hover:bg-gray-100 text-gray-600 font-medium rounded transition border border-gray-300" title="Limpiar búsqueda">
+
+        <button onclick="resetearBusqueda()"
+            class="px-4 py-2 bg-white hover:bg-gray-100 text-gray-600 font-medium rounded transition border border-gray-300"
+            title="Limpiar búsqueda">
             Limpiar
         </button>
     </div>
 
     <div class="max-h-96 overflow-y-auto border rounded-lg bg-gray-50 p-2 min-h-[150px]">
-        
+
         <div id="initialState" class="flex flex-col items-center justify-center h-32 text-gray-400">
             <p>Utilizá el buscador para encontrar una mascota</p>
         </div>
 
         <ul id="dogList" class="divide-y divide-gray-200 hidden">
-            </ul>
-        
+        </ul>
+
         <div id="loadingMsg" class="hidden text-center py-8 text-gray-400">
             <span class="inline-block animate-spin mr-2">⟳</span> Buscando...
         </div>
@@ -62,7 +66,7 @@
     const loadingMsg = document.getElementById('loadingMsg');
 
     // 2. DETECTAR ENTER EN EL INPUT
-    searchInput.addEventListener('keydown', function(event) {
+    searchInput.addEventListener('keydown', function (event) {
         if (event.key === 'Enter') {
             event.preventDefault(); // Evita que se envíe el formulario de arriba por error
             ejecutarBusqueda();
@@ -72,9 +76,9 @@
     // 3. FUNCIÓN DE BÚSQUEDA (Con manejo de errores visuales)
     function ejecutarBusqueda() {
         const query = searchInput.value.trim();
-        
+
         // Ocultamos todo para mostrar el spinner de carga
-        if(initialState) initialState.classList.add('hidden');
+        if (initialState) initialState.classList.add('hidden');
         noResults.classList.add('hidden');
         dogList.classList.add('hidden');
         loadingMsg.classList.remove('hidden');
@@ -97,15 +101,15 @@
     // 4. FUNCIÓN LIMPIAR (Restaura el estado inicial)
     function resetearBusqueda() {
         searchInput.value = '';
-        
+
         // Ocultamos resultados
         dogList.classList.add('hidden');
-        dogList.innerHTML = ''; 
+        dogList.innerHTML = '';
         noResults.classList.add('hidden');
-        
+
         // Mostramos el cartel de bienvenida de nuevo
-        if(initialState) initialState.classList.remove('hidden');
-        
+        if (initialState) initialState.classList.remove('hidden');
+
         // Ponemos el cursor en el input
         searchInput.focus();
     }
@@ -113,7 +117,7 @@
     // 5. RENDERIZADO DE LA LISTA
     function renderizarLista(dogs) {
         dogList.innerHTML = ''; // Limpiar lista vieja
-        
+
         if (dogs.length === 0) {
             noResults.classList.remove('hidden');
             return;
@@ -129,7 +133,7 @@
 
             const li = document.createElement('li');
             li.className = 'py-3 px-2 dog-item flex items-center justify-between hover:bg-white rounded transition border-b border-gray-100 last:border-0';
-            
+
             li.innerHTML = `
                 <a href="${viewUrl}" class="flex-1 hover:text-blue-600 group">
                     <div>

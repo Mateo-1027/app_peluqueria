@@ -69,6 +69,7 @@ class Dog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     owner_name = db.Column(db.String(100))
+    owner_phone = db.Column(db.String(20))
     is_deleted = db.Column(db.Boolean, default=False)
     notes = db.Column(db.Text)
 

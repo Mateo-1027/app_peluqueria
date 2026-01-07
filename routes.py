@@ -274,6 +274,7 @@ def add_dog():
         new_dog = Dog(
             name=form.name.data,       
             owner_name=form.owner_name.data,
+            owner_phone=form.owner_phone.data,
             notes=form.notes.data
         )
         db.session.add(new_dog)

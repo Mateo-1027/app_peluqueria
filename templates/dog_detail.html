@@ -4,10 +4,34 @@
 
 {% block content %}
 <div class="bg-white rounded-2xl shadow p-6">
-  <h1 class="text-2xl font-bold mb-2">Detalles de {{dog.name}}</h1>
-  <p class="mb-4 text-gray-600">Dueno: {{dog.owner_name}}</p>
+  <h1 class="text-2xl font-bold mb-6">Detalles de {{dog.name}}</h1>
 
-  <h2 class="text-xl font-semibold mt-4 mb-2">Turnos</h2>
+  <!-- Información del Perro -->
+  <div class="bg-gray-50 rounded-lg p-4 mb-6">
+    <h2 class="text-lg font-semibold mb-3 text-gray-700">Información General</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div>
+        <span class="font-semibold text-gray-600">Nombre:</span>
+        <span class="ml-2">{{dog.name}}</span>
+      </div>
+      <div>
+        <span class="font-semibold text-gray-600">Dueño:</span>
+        <span class="ml-2">{{dog.owner_name or 'No especificado'}}</span>
+      </div>
+      <div>
+        <span class="font-semibold text-gray-600">Teléfono:</span>
+        <span class="ml-2">{{dog.owner_phone or 'No especificado'}}</span>
+      </div>
+    </div>
+    {% if dog.notes %}
+    <div class="mt-3 pt-3 border-t border-gray-200">
+      <span class="font-semibold text-gray-600">Notas:</span>
+      <p class="mt-1 text-gray-700 whitespace-pre-wrap">{{dog.notes}}</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <h2 class="text-xl font-semibold mt-6 mb-2">Turnos</h2>
   {% if appointments %}
   <ul class="divide-y divide-gray-200">
     {% for a in appointments %}
