@@ -111,10 +111,12 @@
 
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-2">Duración (minutos)</label>
-        {{ form.duration(class="w-full p-2 rounded border focus:ring focus:ring-blue-200", placeholder="Ej: 60") }}
+        {{ form.duration(class="w-full p-2 rounded border focus:ring focus:ring-blue-200", placeholder="Ej: 60",
+        step="15", min="15", id="duration-input") }}
         {% if form.duration.errors %}
         <span class="text-red-500 text-xs">{{ form.duration.errors[0] }}</span>
         {% endif %}
+        <p class="text-xs text-gray-500 mt-1">Usa las flechas ↑ ↓ para incrementar de 15 en 15 minutos</p>
       </div>
 
       <div class="md:col-span-2">
