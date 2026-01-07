@@ -192,10 +192,26 @@
         aspectRatio: 1.2,
         events: '/appointments',
         eventDisplay: 'background',
+
+        eventDataTransform: function (eventData) {
+          return {
+            start: eventData.start,
+            end: eventData.end,
+            display: 'background',
+            allDay: true,
+            backgroundColor: '#60A5FA',
+            classNames: ['opacity-75']
+          };
+        },
+
         dateClick: function (info) {
           mainCalendar.gotoDate(info.dateStr);
-          document.querySelectorAll('.fc-daygrid-day').forEach(el => el.style.backgroundColor = '');
-          info.dayEl.style.backgroundColor = '#eff6ff';
+
+          document.querySelectorAll('.fc-daygrid-day').forEach(el => {
+            el.style.backgroundColor = '';
+          });
+
+          info.dayEl.style.backgroundColor = '#F3F4F6';
         }
       });
 
