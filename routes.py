@@ -279,10 +279,16 @@ def add_dog():
         if not owner:
             owner = Owner(
                 name = form.owner_name.data,
-                phone=form.owner_phone.data
+                phone=form.owner_phone.data,
+                address=form.address.data
             )
             db.session.add(owner)
             db.session.flush()
+        else:
+            # Si el owner existe, actualizamos sus datos 
+            owner.name = form.owner_name.data
+            owner.phone = form.owner_phone.data
+            owner.address = form.address.data
 
         new_dog = Dog(
             name=form.name.data,       
@@ -327,6 +333,7 @@ def edit_dog(dog_id):
     if request.method == 'GET':
         form.owner_name.data = dog.owner.name
         form.owner_phone.data = dog.owner.phone
+        form.address.data = dog.owner.address
 
     if form.validate_on_submit():
         
@@ -334,9 +341,10 @@ def edit_dog(dog_id):
         dog.name = form.name.data
         dog.notes = form.notes.data
 
-        #Actualiza dato del dueño(Para todas sus amscotas)
+        #Actualiza dato del dueño (Para todas sus mascotas)
         dog.owner.name = form.owner_name.data
         dog.owner.phone = form.owner_phone.data
+        dog.owner.address = form.address.data
 
         db.session.commit()
         flash('Mascota actualizada.')
@@ -387,6 +395,33 @@ def search_dogs_api():
     } for d in results]
 
     return jsonify(dogs_data)
+
+
+@main.route('/api/owners/search')
+@login_required
+def search_owners_api():
+    """Buscar owners por nombre o teléfono para autocompletado"""
+    query = request.args.get('q', '').strip()
+    
+    if not query:
+        return jsonify([])
+    
+    # Buscar por nombre o teléfono
+    results = Owner.query.filter(
+        or_(
+            Owner.name.ilike(f'%{query}%'),
+            Owner.phone.ilike(f'%{query}%')
+        )
+    ).order_by(Owner.name.asc()).limit(20).all()
+    
+    owners_data = [{
+        'id': o.id,
+        'name': o.name,
+        'phone': o.phone or '',
+        'address': o.address or ''
+    } for o in results]
+    
+    return jsonify(owners_data)
 
 
 #-------- Rutas de Gestión de Servicios --------#

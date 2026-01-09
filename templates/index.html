@@ -6,16 +6,46 @@
 <div class="bg-white rounded-2xl shadow p-6">
     <h1 class="text-2xl font-bold mb-4">Registro de Mascotas</h1>
 
-    <form action="{{ url_for('main.add_dog') }}" method="POST" class="grid grid-cols-3 gap-4 mb-6 border-b pb-6">
+    <form action="{{ url_for('main.add_dog') }}" method="POST" class="border-b pb-6 mb-6">
         {{ form.csrf_token }}
-        <input type="text" name="name" placeholder="Nombre del perro" required class="col-span-1 p-2 rounded border" />
-        <input type="text" name="owner_name" placeholder="Nombre del dueño" required
-            class="col-span-1 p-2 rounded border" />
-        <input type="text" name="owner_phone" placeholder="Teléfono" class="col-span-1 p-2 rounded border" />
-        <textarea name="notes" placeholder="Notas" class="col-span-3 border p-2 rounded"></textarea>
-        <button type="submit" class="col-span-3 bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
-            Agregar Perro
-        </button>
+
+        <!-- Buscador de Dueño con Autocompletado -->
+        <div class="mb-8">
+            <label class="block text-sm font-semibold text-gray-700 mb-2">Buscar Dueño Existente</label>
+            <div class="relative">
+                <input type="text" id="ownerSearchInput" placeholder="Escribe nombre o teléfono..."
+                    class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-200 focus:border-blue-400 transition"
+                    autocomplete="off" />
+
+                <!-- Dropdown de sugerencias -->
+                <div id="ownerSuggestions"
+                    class="absolute z-10 w-full bg-white border rounded-lg shadow-lg mt-1 hidden max-h-60 overflow-y-auto">
+                    <!-- Las sugerencias se insertarán aquí dinámicamente -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Campos del formulario -->
+        <div class="grid grid-cols-3 gap-4">
+            <label class="block text-sm font-semibold text-gray-700">Añadir Dueño nuevo</label>
+            <input type="text" id="dogName" name="name" placeholder="Nombre del perro" required
+                class="col-span-3 p-2 rounded border" />
+
+            <input type="text" id="ownerName" name="owner_name" placeholder="Nombre del dueño" required
+                class="col-span-1 p-2 rounded border" />
+
+            <input type="text" id="ownerPhone" name="owner_phone" placeholder="Teléfono"
+                class="col-span-1 p-2 rounded border" />
+
+            <input type="text" id="ownerAddress" name="address" placeholder="Dirección"
+                class="col-span-1 p-2 rounded border" />
+
+            <textarea id="dogNotes" name="notes" placeholder="Notas" class="col-span-3 border p-2 rounded"></textarea>
+
+            <button type="submit" class="col-span-3 bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
+                Agregar Perro
+            </button>
+        </div>
     </form>
 
     <div class="flex gap-2 mb-4">
@@ -152,5 +182,161 @@
             dogList.appendChild(li);
         });
     }
+
+    // ===== AUTOCOMPLETADO DE OWNERS =====
+
+    const ownerSearchInput = document.getElementById('ownerSearchInput');
+    const ownerSuggestions = document.getElementById('ownerSuggestions');
+    const ownerNameField = document.getElementById('ownerName');
+    const ownerPhoneField = document.getElementById('ownerPhone');
+    const ownerAddressField = document.getElementById('ownerAddress');
+
+    let selectedOwnerId = null;
+    let debounceTimer = null;
+
+    // Buscar owners mientras el usuario escribe
+    ownerSearchInput.addEventListener('input', function () {
+        const query = this.value.trim();
+
+        // Limpiar el timer anterior
+        clearTimeout(debounceTimer);
+
+        if (query.length < 2) {
+            ownerSuggestions.classList.add('hidden');
+            return;
+        }
+
+        // Esperar 300ms antes de buscar (debounce)
+        debounceTimer = setTimeout(() => {
+            buscarOwners(query);
+        }, 300);
+    });
+
+    function buscarOwners(query) {
+        fetch(`/api/owners/search?q=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(owners => {
+                mostrarSugerencias(owners);
+            })
+            .catch(error => {
+                console.error('Error al buscar dueños:', error);
+            });
+    }
+
+    function mostrarSugerencias(owners) {
+        ownerSuggestions.innerHTML = '';
+
+        if (owners.length === 0) {
+            ownerSuggestions.innerHTML = `
+                <div class="p-3 text-gray-500 text-sm text-center">
+                    No se encontraron dueños. Puedes crear uno nuevo completando el formulario.
+                </div>
+            `;
+            ownerSuggestions.classList.remove('hidden');
+            return;
+        }
+
+        owners.forEach(owner => {
+            const div = document.createElement('div');
+            div.className = 'p-3 hover:bg-blue-50 cursor-pointer border-b last:border-0 transition';
+            div.innerHTML = `
+                <div class="font-semibold text-gray-800">${owner.name}</div>
+                <div class="text-sm text-gray-600">
+                    ${owner.phone ? ' ' + owner.phone : 'Sin teléfono'}
+                    ${owner.address ? ' • ' + owner.address : ''}
+                </div>
+            `;
+
+            div.addEventListener('click', () => {
+                seleccionarOwner(owner);
+            });
+
+            ownerSuggestions.appendChild(div);
+        });
+
+        ownerSuggestions.classList.remove('hidden');
+    }
+
+    function seleccionarOwner(owner) {
+        // Autocompletar campos
+        ownerNameField.value = owner.name;
+        ownerPhoneField.value = owner.phone || '';
+        ownerAddressField.value = owner.address || '';
+
+        // Guardar el ID del owner seleccionado
+        selectedOwnerId = owner.id;
+
+        // Limpiar y ocultar sugerencias
+        ownerSearchInput.value = owner.name;
+        ownerSuggestions.classList.add('hidden');
+
+        // Deshabilitar campos para evitar modificación accidental
+        ownerNameField.setAttribute('readonly', true);
+        ownerPhoneField.setAttribute('readonly', true);
+        ownerAddressField.setAttribute('readonly', true);
+
+        // Cambiar estilo visual para indicar que están bloqueados
+        ownerNameField.classList.add('bg-gray-100');
+        ownerPhoneField.classList.add('bg-gray-100');
+        ownerAddressField.classList.add('bg-gray-100');
+
+        // Mostrar botón para limpiar selección
+        mostrarBotonLimpiar();
+    }
+
+    function mostrarBotonLimpiar() {
+        // Buscar si ya existe el botón
+        let btnLimpiar = document.getElementById('btnLimpiarOwner');
+
+        if (!btnLimpiar) {
+            btnLimpiar = document.createElement('button');
+            btnLimpiar.id = 'btnLimpiarOwner';
+            btnLimpiar.type = 'button';
+            btnLimpiar.className = 'text-sm text-blue-600 hover:text-blue-800 underline mt-1';
+            btnLimpiar.textContent = 'Limpiar y crear nuevo dueño';
+            btnLimpiar.addEventListener('click', limpiarSeleccionOwner);
+
+            // Insertar después del campo de búsqueda
+            ownerSearchInput.parentElement.parentElement.appendChild(btnLimpiar);
+        }
+    }
+
+    function limpiarSeleccionOwner() {
+        // Limpiar campos
+        ownerSearchInput.value = '';
+        ownerNameField.value = '';
+        ownerPhoneField.value = '';
+        ownerAddressField.value = '';
+        selectedOwnerId = null;
+
+        // Habilitar campos
+        ownerNameField.removeAttribute('readonly');
+        ownerPhoneField.removeAttribute('readonly');
+        ownerAddressField.removeAttribute('readonly');
+
+        // Quitar estilo de bloqueado
+        ownerNameField.classList.remove('bg-gray-100');
+        ownerPhoneField.classList.remove('bg-gray-100');
+        ownerAddressField.classList.remove('bg-gray-100');
+
+        // Ocultar sugerencias
+        ownerSuggestions.classList.add('hidden');
+
+        // Remover botón limpiar
+        const btnLimpiar = document.getElementById('btnLimpiarOwner');
+        if (btnLimpiar) {
+            btnLimpiar.remove();
+        }
+
+        // Focus en el campo de búsqueda
+        ownerSearchInput.focus();
+    }
+
+    // Cerrar sugerencias al hacer clic fuera
+    document.addEventListener('click', function (event) {
+        if (!ownerSearchInput.contains(event.target) && !ownerSuggestions.contains(event.target)) {
+            ownerSuggestions.classList.add('hidden');
+        }
+    });
 </script>
 {% endblock %}
