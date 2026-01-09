@@ -67,7 +67,7 @@ def vista_turnos():
             services_by_category[category] = category_services
     
     form = AppointmentForm()
-    form.dog_id.choices = [(d.id, f"{d.name} ({d.owner_name or 'Sin dueño'})") for d in dogs]
+    form.dog_id.choices = [(d.id, f"{d.name} ({d.owner.name or 'Sin dueño'})") for d in dogs]
     form.service_id.choices = [(s.id, f"{s.name} - ${s.base_price:,.0f}") for s in services]
     form.item_ids.choices = [(i.id, f"{i.name} (+${i.price:,.0f})") for i in items]
     form.user_id.choices = [(u.id, u.username) for u in users]
@@ -82,7 +82,7 @@ def get_dogs_json():
         {
             'id': dog.id,
             'name': dog.name,
-            'owner_name': dog.owner_name,
+            'owner_name': dog.owner.name,
         }
         for dog in dogs
     ]
@@ -209,7 +209,7 @@ def edit_appointment(appointment_id):
     items = Item.query.filter_by(is_active=True).all()
     users = User.query.all()
     
-    form.dog_id.choices = [(d.id, f"{d.name} ({d.owner_name})") for d in dogs]
+    form.dog_id.choices = [(d.id, f"{d.name} ({d.owner.name})") for d in dogs]
     form.service_id.choices = [(s.id, f"{s.name} - ${s.base_price:,.0f}") for s in services]
     form.item_ids.choices = [(i.id, f"{i.name} (+${i.price:,.0f})") for i in items]
     form.user_id.choices = [(u.id, u.username) for u in users]
@@ -273,16 +273,16 @@ def add_dog():
     if form.validate_on_submit():
 
         owner = None
-        if form.owner_name_phone.data:
-            owner = Owner.query.filter_by(phone=form.owner_phone.data)
+        if form.owner_phone.data:
+            owner = Owner.query.filter_by(phone=form.owner_phone.data).first()
 
         if not owner:
             owner = Owner(
                 name = form.owner_name.data,
                 phone=form.owner_phone.data
             )
-        db.session.add(owner)
-        db.session.flush()
+            db.session.add(owner)
+            db.session.flush()
 
         new_dog = Dog(
             name=form.name.data,       
@@ -326,7 +326,7 @@ def edit_dog(dog_id):
     
     if request.method == 'GET':
         form.owner_name.data = dog.owner.name
-        form.owner_phone_data = dog.owner.phone
+        form.owner_phone.data = dog.owner.phone
 
     if form.validate_on_submit():
         
@@ -383,8 +383,8 @@ def search_dogs_api():
     dogs_data = [{
         'id': d.id,
         'name': d.name,
-        'owner_name': d.owner_name
-    }for d in results]
+        'owner_name': d.owner.name
+    } for d in results]
 
     return jsonify(dogs_data)
 
