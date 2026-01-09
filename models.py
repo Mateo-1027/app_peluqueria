@@ -70,7 +70,7 @@ class Owner(db.Model):
     name = db.Column(db.String(100), nullable= False)
     phone = db.Column(db.String(20), nullable = True)
     email = db.Column(db.String(100), nullable = True)
-    address = db.Column(db.String(200), nullable=False)
+    address = db.Column(db.String(200), nullable=True)
 
     #Relacion con los perros
     dogs = db.relationship('Dog', backref='owner', lazy=True)
