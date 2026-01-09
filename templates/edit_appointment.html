@@ -10,10 +10,42 @@
     {{ form.csrf_token }}
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div>
+      <div class="mb-4 bg-white p-3 rounded border border-gray-200">
         <label class="block text-sm font-medium text-gray-700 mb-2">Mascota</label>
-        {{ form.dog_id(class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-200
-        focus:border-blue-400") }}
+
+        {{ form.dog_id(id="selected_dog_id") }}
+
+        <div id="search-interface">
+          <div class="flex gap-2">
+            <input type="text" id="dog_query" class="flex-1 p-2 border rounded focus:ring-2 focus:ring-blue-200"
+              placeholder="Nombre, Dueño o Legajo..."
+              onkeydown="if(event.key === 'Enter'){event.preventDefault(); buscarMascotaParaTurno();}">
+
+            <button type=" button" onclick="buscarMascotaParaTurno()"
+              class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 font-medium">
+              Buscar
+            </button>
+          </div>
+
+          <div id="results_list" class="mt-2 max-h-48 overflow-y-auto border rounded-lg bg-gray-50 hidden shadow-inner">
+          </div>
+        </div>
+
+        <div id="selected_display"
+          class="hidden mt-2 p-3 bg-blue-100 border border-blue-200 rounded-lg flex justify-between items-center">
+          <div>
+            <span class="block font-bold text-blue-900" id="display_name">Nombre</span>
+            <span class="text-xs text-blue-700" id="display_owner">Dueño</span>
+          </div>
+          <button type="button" onclick="limpiarSeleccion()"
+            class="text-red-600 hover:text-red-800 text-sm font-bold px-2">
+            ✕ Cambiar
+          </button>
+        </div>
+
+        {% if form.dog_id.errors %}
+        <span class="text-red-500 text-xs mt-1 block">{{ form.dog_id.errors[0] }}</span>
+        {% endif %}
       </div>
 
       <div>
@@ -22,8 +54,11 @@
           class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
           required>
           <option value="">Selecciona un servicio</option>
-          {% for value, label in form.service_id.choices %}
-          <option value="{{ value }}" {% if form.service_id.data==value %}selected{% endif %}>{{ label }}</option>
+          {% for service in services %}
+          <option value="{{ service.id }}" data-duration="{{ service.duration_minutes }}" {% if
+            form.service_id.data==service.id %}selected{% endif %}>
+            {{ service.name }} - ${{ service.base_price|int|format_number }}
+          </option>
           {% endfor %}
         </select>
       </div>
@@ -84,19 +119,24 @@
       {{ form.description(class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-200
       focus:border-blue-400", rows="2") }}
     </div>
-  </form>
-  <div class="flex justify-between items-center pt-4 border-t">
-    <div class="flex gap-3">
-      <button type="submit" id="form-editar"
-        class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 font-semibold transition">
-        Guardar Cambios
-      </button>
-      <a href="{{ url_for('main.vista_turnos') }}"
-        class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded font-semibold transition">
-        Cancelar
-      </a>
-    </div>
 
+    <!-- Botones de acción -->
+    <div class="flex justify-between items-center pt-4 border-t mt-4">
+      <div class="flex gap-3">
+        <button type="submit"
+          class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 font-semibold transition">
+          Guardar Cambios
+        </button>
+        <a href="{{ url_for('main.vista_turnos') }}"
+          class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded font-semibold transition inline-block">
+          Cancelar
+        </a>
+      </div>
+    </div>
+  </form>
+
+  <!-- Botón eliminar (fuera del form principal) -->
+  <div class="mt-4">
     <form action="{{ url_for('main.delete_appointment', appointment_id=appointment.id) }}" method="POST"
       onsubmit="return confirm('¿Eliminar este turno?')" class="inline">
       <button type="submit" class="text-red-600 hover:text-red-800 font-semibold transition">
@@ -104,7 +144,7 @@
       </button>
     </form>
   </div>
-  
+
 </div>
 
 <script>
@@ -128,10 +168,107 @@
 
     if (serviceSelect && durationInput) {
       serviceSelect.addEventListener('change', function () {
-        // Aquí podrías agregar lógica para auto-completar si necesario
-        // Por ahora dejamos que el usuario edite manualmente
+        const selectedOption = this.options[this.selectedIndex];
+        const duration = selectedOption.getAttribute('data-duration');
+
+        if (duration) {
+          durationInput.value = duration;
+        }
       });
     }
+
+    // Precargar la mascota actual del turno al cargar la página
+    const currentDogId = document.getElementById('selected_dog_id').value;
+    if (currentDogId) {
+      // Mostrar la selección actual
+      document.getElementById('search-interface').classList.add('hidden');
+      document.getElementById('selected_display').classList.remove('hidden');
+
+      // Obtener datos de la mascota actual via API
+      fetch(`/api/dogs/search?q=${currentDogId}`)
+        .then(res => res.json())
+        .then(dogs => {
+          if (dogs.length > 0) {
+            const dog = dogs[0];
+            document.getElementById('display_name').textContent = dog.name;
+            document.getElementById('display_owner').textContent = `Dueño: ${dog.owner_name || '---'}`;
+          }
+        })
+        .catch(err => console.error('Error al cargar datos de la mascota:', err));
+    }
   });
+
+  // --- FUNCIONES DE BÚSQUEDA (Reutilizadas de turnos.html) ---
+
+  function buscarMascotaParaTurno() {
+    const query = document.getElementById('dog_query').value.trim();
+    const lista = document.getElementById('results_list');
+
+    if (!query) return;
+
+    // Mostrar estado de carga
+    lista.innerHTML = '<div class="p-3 text-gray-500 text-center text-sm">Buscando...</div>';
+    lista.classList.remove('hidden');
+
+    // LLAMADA AL API
+    fetch(`/api/dogs/search?q=${encodeURIComponent(query)}`)
+      .then(res => res.json())
+      .then(dogs => {
+        lista.innerHTML = ''; // Limpiar
+
+        if (dogs.length === 0) {
+          lista.innerHTML = '<div class="p-3 text-gray-500 text-center text-sm">No se encontraron mascotas.</div>';
+          return;
+        }
+
+        // Crear lista de resultados
+        const ul = document.createElement('ul');
+        ul.className = 'divide-y divide-gray-200';
+
+        dogs.forEach(dog => {
+          const li = document.createElement('li');
+          li.className = 'p-3 hover:bg-white cursor-pointer transition flex justify-between items-center';
+          li.onclick = () => seleccionarMascota(dog);
+
+          li.innerHTML = `
+                      <div>
+                          <div class="font-bold text-gray-800 text-sm">${dog.name}</div>
+                          <div class="text-xs text-gray-500">Dueño: ${dog.owner_name || '---'}</div>
+                      </div>
+                      <span class="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded">Legajo: ${dog.id}</span>
+                  `;
+          ul.appendChild(li);
+        });
+        lista.appendChild(ul);
+      })
+      .catch(err => {
+        console.error(err);
+        lista.innerHTML = '<div class="p-3 text-red-500 text-center text-sm">Error de conexión.</div>';
+      });
+  }
+
+  function seleccionarMascota(dog) {
+    // 1. Llenar el HiddenField
+    document.getElementById('selected_dog_id').value = dog.id;
+
+    // 2. Actualizar visualización
+    document.getElementById('display_name').textContent = dog.name;
+    document.getElementById('display_owner').textContent = `Dueño: ${dog.owner_name || '---'}`;
+
+    // 3. Alternar visibilidad
+    document.getElementById('search-interface').classList.add('hidden');
+    document.getElementById('selected_display').classList.remove('hidden');
+  }
+
+  function limpiarSeleccion() {
+    document.getElementById('selected_dog_id').value = '';
+    document.getElementById('dog_query').value = '';
+    document.getElementById('results_list').innerHTML = '';
+    document.getElementById('results_list').classList.add('hidden');
+
+    document.getElementById('selected_display').classList.add('hidden');
+    document.getElementById('search-interface').classList.remove('hidden');
+    document.getElementById('dog_query').focus();
+  }
 </script>
 {% endblock %}

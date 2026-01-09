@@ -17,9 +17,42 @@
     {{ form.csrf_token }}
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-      <div>
+      <div class="mb-4 bg-white p-3 rounded border border-gray-200">
         <label class="block text-sm font-medium text-gray-700 mb-2">Mascota</label>
-        {{ form.dog_id(class="w-full p-2 rounded border focus:ring focus:ring-blue-200") }}
+
+        {{ form.dog_id(id="selected_dog_id") }}
+
+        <div id="search-interface">
+          <div class="flex gap-2">
+            <input type="text" id="dog_query" class="flex-1 p-2 border rounded focus:ring-2 focus:ring-blue-200"
+              placeholder="Nombre, Dueño o Legajo..."
+              onkeydown="if(event.key === 'Enter'){event.preventDefault(); buscarMascotaParaTurno();}">
+
+            <button type="button" onclick="buscarMascotaParaTurno()"
+              class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 font-medium">
+              Buscar
+            </button>
+          </div>
+
+          <div id="results_list" class="mt-2 max-h-48 overflow-y-auto border rounded-lg bg-gray-50 hidden shadow-inner">
+          </div>
+        </div>
+
+        <div id="selected_display"
+          class="hidden mt-2 p-3 bg-blue-100 border border-blue-200 rounded-lg flex justify-between items-center">
+          <div>
+            <span class="block font-bold text-blue-900" id="display_name">Nombre</span>
+            <span class="text-xs text-blue-700" id="display_owner">Dueño</span>
+          </div>
+          <button type="button" onclick="limpiarSeleccion()"
+            class="text-red-600 hover:text-red-800 text-sm font-bold px-2">
+            ✕ Cambiar
+          </button>
+        </div>
+
+        {% if form.dog_id.errors %}
+        <span class="text-red-500 text-xs mt-1 block">{{ form.dog_id.errors[0] }}</span>
+        {% endif %}
       </div>
 
       <div class="md:col-span-2">
@@ -32,7 +65,7 @@
             {% for service in services|sort(attribute='size.display_order') %}
             <div class="relative">
               <input type="radio" name="service_id" value="{{ service.id }}" id="service_{{ service.id }}"
-                class="peer sr-only" required>
+                data-duration="{{ service.duration_minutes }}" class="peer sr-only" required>
               <label for="service_{{ service.id }}"
                 class="block p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-blue-400 hover:shadow-sm transition-all duration-200 peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-checked:shadow-md">
                 <span class="block text-sm font-semibold text-gray-700">{{ service.size.name }}</span>
@@ -254,6 +287,98 @@
         toast.style.transition = 'opacity 0.3s ease';
         setTimeout(() => toast.remove(), 300);
       }, 2000);
+    }
+
+    // Auto-completar duración al seleccionar servicio
+    document.addEventListener('DOMContentLoaded', function () {
+      const serviceRadios = document.querySelectorAll('input[name="service_id"]');
+      const durationInput = document.getElementById('duration-input');
+
+      serviceRadios.forEach(radio => {
+        radio.addEventListener('change', function () {
+          if (this.checked && durationInput) {
+            const duration = this.getAttribute('data-duration');
+            if (duration) {
+              durationInput.value = duration;
+            }
+          }
+        });
+      });
+    });
+
+
+    // --- LÓGICA REUTILIZANDO TU API ---
+
+    function buscarMascotaParaTurno() {
+      const query = document.getElementById('dog_query').value.trim();
+      const lista = document.getElementById('results_list');
+
+      if (!query) return;
+
+      // Mostrar estado de carga
+      lista.innerHTML = '<div class="p-3 text-gray-500 text-center text-sm">Buscando...</div>';
+      lista.classList.remove('hidden');
+
+      // LLAMADA A TU API EXISTENTE
+      fetch(`/api/dogs/search?q=${encodeURIComponent(query)}`)
+        .then(res => res.json())
+        .then(dogs => {
+          lista.innerHTML = ''; // Limpiar
+
+          if (dogs.length === 0) {
+            lista.innerHTML = '<div class="p-3 text-gray-500 text-center text-sm">No se encontraron mascotas.</div>';
+            return;
+          }
+
+          // Crear lista de resultados
+          const ul = document.createElement('ul');
+          ul.className = 'divide-y divide-gray-200';
+
+          dogs.forEach(dog => {
+            const li = document.createElement('li');
+            li.className = 'p-3 hover:bg-white cursor-pointer transition flex justify-between items-center';
+            // Al hacer click, seleccionamos este perro
+            li.onclick = () => seleccionarMascota(dog);
+
+            li.innerHTML = `
+                      <div>
+                          <div class="font-bold text-gray-800 text-sm">${dog.name}</div>
+                          <div class="text-xs text-gray-500">Dueño: ${dog.owner_name || '---'}</div>
+                      </div>
+                      <span class="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded">Legajo: ${dog.id}</span>
+                  `;
+            ul.appendChild(li);
+          });
+          lista.appendChild(ul);
+        })
+        .catch(err => {
+          console.error(err);
+          lista.innerHTML = '<div class="p-3 text-red-500 text-center text-sm">Error de conexión.</div>';
+        });
+    }
+
+    function seleccionarMascota(dog) {
+      // 1. Llenar el HiddenField (lo que importa para el server)
+      document.getElementById('selected_dog_id').value = dog.id;
+
+      // 2. Actualizar visualización
+      document.getElementById('display_name').textContent = dog.name;
+      document.getElementById('display_owner').textContent = `Dueño: ${dog.owner_name || '---'}`;
+
+      // 3. Alternar visibilidad (Esconder buscador, mostrar seleccionado)
+      document.getElementById('search-interface').classList.add('hidden');
+      document.getElementById('selected_display').classList.remove('hidden');
+    }
+
+    function limpiarSeleccion() {
+      document.getElementById('selected_dog_id').value = '';
+      document.getElementById('dog_query').value = '';
+      document.getElementById('results_list').innerHTML = '';
+      document.getElementById('results_list').classList.add('hidden');
+
+      document.getElementById('selected_display').classList.add('hidden');
+      document.getElementById('search-interface').classList.remove('hidden');
+      document.getElementById('dog_query').focus();
     }
   </script>
   {% endblock %}

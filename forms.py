@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SubmitField, SelectField, IntegerField, TextAreaField, DateTimeLocalField, SelectMultipleField, RadioField
+from wtforms import StringField, PasswordField, SubmitField, SelectField, IntegerField, TextAreaField, DateTimeLocalField, SelectMultipleField, RadioField, HiddenField
 from wtforms.validators import DataRequired, Length, NumberRange, Optional
 
 #Formulario de Login
@@ -19,7 +19,7 @@ class DogForm(FlaskForm):
     submit = SubmitField('Guardar Mascota')
 
 class AppointmentForm(FlaskForm):
-    dog_id = SelectField('Perro', coerce=int, validators=[DataRequired()])
+    dog_id = HiddenField('Perro', validators=[DataRequired()])
     service_id = RadioField('Servicio', coerce=int, validators=[DataRequired()])  # RadioField para solo un servicio
     item_ids = SelectMultipleField('Adicionales (opcional)', coerce=int, validators=[Optional()])
     user_id = SelectField('Peluquera', coerce=int, validators=[DataRequired()])

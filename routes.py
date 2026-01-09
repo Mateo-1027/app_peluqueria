@@ -53,7 +53,7 @@ def vista_mascotas():
 @main.route('/turnos')
 @login_required
 def vista_turnos():
-    dogs = Dog.query.filter_by(is_deleted=False).all()
+
     services = Service.query.filter_by(is_active=True).all()
     items = Item.query.filter_by(is_active=True).all()
     users = User.query.all()  # Todas las peluqueras
@@ -67,12 +67,12 @@ def vista_turnos():
             services_by_category[category] = category_services
     
     form = AppointmentForm()
-    form.dog_id.choices = [(d.id, f"{d.name} ({d.owner.name or 'Sin dueño'})") for d in dogs]
+  
     form.service_id.choices = [(s.id, f"{s.name} - ${s.base_price:,.0f}") for s in services]
     form.item_ids.choices = [(i.id, f"{i.name} (+${i.price:,.0f})") for i in items]
     form.user_id.choices = [(u.id, u.username) for u in users]
 
-    return render_template('turnos.html', dogs=dogs, form=form, services_by_category=services_by_category)
+    return render_template('turnos.html', dogs=[], form=form, services_by_category=services_by_category)
 
 @main.route('/api/dogs')
 @login_required
@@ -115,12 +115,10 @@ def add_appointment():
     form = AppointmentForm()
    
     # Cargar opciones para el formulario
-    dogs = Dog.query.filter_by(is_deleted=False).all()
     services = Service.query.filter_by(is_active=True).all()
     items = Item.query.filter_by(is_active=True).all()
     users = User.query.all()
     
-    form.dog_id.choices = [(d.id, d.name) for d in dogs]
     form.service_id.choices = [(s.id, s.name) for s in services]
     form.item_ids.choices = [(i.id, i.name) for i in items]
     form.user_id.choices = [(u.id, u.username) for u in users]
@@ -163,8 +161,16 @@ def add_appointment():
         return redirect(url_for('main.vista_turnos'))
 
     else:
-        # Si falla, volvemos a mostrar la página con los errores
-        return render_template('turnos.html', dogs=dogs, form=form)
+
+        categories = ServiceCategory.query.filter_by(is_active=True).order_by(ServiceCategory.display_order).all()
+        services_by_category = {}
+        for category in categories:
+            category_services = [s for s in services if s.category_id == category.id]
+            if category_services:
+                services_by_category[category] = category_services
+
+        
+        return render_template('turnos.html', dogs=[], form=form, services_by_category=services_by_category)
 
 @main.route('/appointments/delete/<int:appointment_id>', methods=['POST'])
 @login_required
@@ -204,12 +210,10 @@ def edit_appointment(appointment_id):
     form = AppointmentForm(obj=appointment)
 
     # Cargar listas para opciones del formulario
-    dogs = Dog.query.filter_by(is_deleted=False).all()
     services = Service.query.filter_by(is_active=True).all()
     items = Item.query.filter_by(is_active=True).all()
     users = User.query.all()
     
-    form.dog_id.choices = [(d.id, f"{d.name} ({d.owner.name})") for d in dogs]
     form.service_id.choices = [(s.id, f"{s.name} - ${s.base_price:,.0f}") for s in services]
     form.item_ids.choices = [(i.id, f"{i.name} (+${i.price:,.0f})") for i in items]
     form.user_id.choices = [(u.id, u.username) for u in users]
@@ -246,12 +250,13 @@ def edit_appointment(appointment_id):
 
     # Pre-llenar los items y duración al cargar el formulario
     if request.method == 'GET':
+        form.dog_id.data = appointment.dog_id
         form.item_ids.data = [item.id for item in appointment.items]
         # Calcular duración actual en minutos
         duration_minutes = (appointment.end_time - appointment.start_time).seconds // 60
         form.duration.data = duration_minutes
 
-    return render_template('edit_appointment.html', form=form, appointment=appointment)
+    return render_template('edit_appointment.html', form=form, appointment=appointment, services=services)
 
 @main.route('/appointments/restore/<int:appointment_id>', methods=['POST'])
 @login_required
@@ -377,14 +382,22 @@ def search_dogs_api():
 
     if query:
         if query.isdigit():
+            # Buscar por ID o por nombre (perro o dueño)
             base_query = base_query.filter(
                 or_(
                     Dog.name.ilike(f'%{query}%'),
-                    Dog.id == int(query)
+                    Dog.id == int(query),
+                    Owner.name.ilike(f'%{query}%')
                 )
             )
         else:
-            base_query = base_query.filter(Dog.name.ilike(f'%{query}%'))
+            # Buscar por nombre del perro o nombre del dueño
+            base_query = base_query.filter(
+                or_(
+                    Dog.name.ilike(f'%{query}%'),
+                    Owner.name.ilike(f'%{query}%')
+                )
+            )
 
     results = base_query.order_by(Dog.name.asc()).limit(50).all()
 
