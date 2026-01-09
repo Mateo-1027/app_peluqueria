@@ -39,6 +39,13 @@ def logout():
 #-------- Rutas Principales --------#
 
 @main.route('/')
+def index():
+    if current_user.is_authenticated:
+        return render_template('menu.html')
+    else:
+        return redirect(url_for('main.login'))
+
+@main.route('/menu')
 @login_required
 def menu_inicio():
     return render_template('menu.html')
