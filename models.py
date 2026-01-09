@@ -65,13 +65,23 @@ class Item(db.Model):
     price = db.Column(db.Float, nullable=False)  # Precio del adicional
     is_active = db.Column(db.Boolean, default=True)  # Para ocultar items viejos
 
+class Owner(db.Model):
+    id = db.Column(db.Integer, primary_key = True)
+    name = db.Column(db.String(100), nullable= False)
+    phone = db.Column(db.String(20), nullable = True)
+    email = db.Column(db.String(100), nullable = True)
+    address = db.Column(db.String(200), nullable=False)
+
+    #Relacion con los perros
+    dogs = db.relationship('Dog', backref='owner', lazy=True)
+
+
 class Dog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    owner_name = db.Column(db.String(100))
-    owner_phone = db.Column(db.String(20))
-    is_deleted = db.Column(db.Boolean, default=False)
     notes = db.Column(db.Text)
+    is_deleted = db.Column(db.Boolean, default=False)
+    owner_id = db.Column(db.Integer, db.ForeignKey('owner.id'), nullable=False)
 
 class Appointment(db.Model):
     id = db.Column(db.Integer, primary_key=True)

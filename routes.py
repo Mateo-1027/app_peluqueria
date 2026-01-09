@@ -3,7 +3,7 @@
 from flask import Blueprint, render_template, request, redirect, jsonify, url_for, flash
 from flask_login import login_user, login_required, logout_user, current_user
 from extensions import db, login_manager # Importa las extensiones
-from models import User, Dog, Appointment, MedicalNote, Service, ServiceCategory, ServiceSize, Item # Importa las clases de modelos
+from models import User, Dog, Appointment, MedicalNote, Service, ServiceCategory, ServiceSize, Item, Owner
 from utils import guardarBackUpTurnos # Importa la función de utilidad
 from datetime import datetime, timedelta
 from forms import LoginForm, DogForm, AppointmentForm, ServiceForm, ServiceCategoryForm, ServiceSizeForm, ItemForm
@@ -271,10 +271,22 @@ def add_dog():
     
 
     if form.validate_on_submit():
+
+        owner = None
+        if form.owner_name_phone.data:
+            owner = Owner.query.filter_by(phone=form.owner_phone.data)
+
+        if not owner:
+            owner = Owner(
+                name = form.owner_name.data,
+                phone=form.owner_phone.data
+            )
+        db.session.add(owner)
+        db.session.flush()
+
         new_dog = Dog(
             name=form.name.data,       
-            owner_name=form.owner_name.data,
-            owner_phone=form.owner_phone.data,
+            owner_id=owner.id,
             notes=form.notes.data
         )
         db.session.add(new_dog)
@@ -282,7 +294,7 @@ def add_dog():
         flash('Mascota agregada correctamente.')
         return redirect(url_for('main.vista_mascotas'))
  
-    dogs = Dog.query.filter_by(is_deleted=False).all()
+    dogs = []
     return render_template('index.html', dogs=dogs, form=form)
 
 @main.route('/dogs/<int:dog_id>', methods=['GET'])
@@ -308,15 +320,24 @@ def delete_dog(dog_id):
 @main.route('/dogs/edit/<int:dog_id>', methods=['GET', 'POST'])
 @login_required
 def edit_dog(dog_id):
+
     dog = Dog.query.get_or_404(dog_id)
-    
-    # Este truco carga los datos del perro en el formulario automáticamente
     form = DogForm(obj=dog) 
     
+    if request.method == 'GET':
+        form.owner_name.data = dog.owner.name
+        form.owner_phone_data = dog.owner.phone
+
     if form.validate_on_submit():
-        # Este otro truco pasa los datos del formulario al perro
-        form.populate_obj(dog) 
         
+        #Actualizar Datos de la mascota
+        dog.name = form.name.data
+        dog.notes = form.notes.data
+
+        #Actualiza dato del dueño(Para todas sus amscotas)
+        dog.owner.name = form.owner_name.data
+        dog.owner.phone = form.owner_phone.data
+
         db.session.commit()
         flash('Mascota actualizada.')
         return redirect(url_for('main.vista_mascotas'))
@@ -344,7 +365,7 @@ def add_note():
 def search_dogs_api():
 
     query = request.args.get('q', '').strip()
-    base_query = Dog.query.filter_by(is_deleted=False)
+    base_query = Dog.query.join(Owner).filter(Dog.is_deleted == False)
 
     if query:
         if query.isdigit():

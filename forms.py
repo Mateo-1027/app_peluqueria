@@ -12,7 +12,7 @@ class LoginForm(FlaskForm):
 
 class DogForm(FlaskForm):
     name = StringField('Nombre del Perro', validators=[DataRequired(), Length(max=100)])
-    owner_name = StringField('Nombre del Dueño', validators=[Optional()])
+    owner_name = StringField('Nombre del Dueño', validators=[DataRequired()])
     owner_phone = StringField('Teléfono del Dueño', validators=[Optional(), Length(max=20)])
     notes = TextAreaField('Notas', validators=[Optional()])
     submit = SubmitField('Guardar Mascota')
