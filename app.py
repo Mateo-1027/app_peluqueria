@@ -9,15 +9,17 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def create_app():
+
     # Inicializar la aplicación
     app = Flask(__name__)
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///peluqueria-db')
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'clave-dev-por-defecto')
     
-    # Agregar filtro personalizado para formatear números
+
+    # Filtro para formatear dinero
     @app.template_filter('format_number')
     def format_number(value):
-        """Formatea números con separador de miles"""
+        if value is None: return "0"
         return f"{value:,.0f}".replace(',', '.')
     
     # Inicializar extensiones
@@ -29,8 +31,10 @@ def create_app():
 
     # Importar y registrar rutas y modelos
     with app.app_context():
+
+        
         from routes import main # Importa el blueprint de rutas
-        from models import User, Dog, Appointment, MedicalNote, Service, ServiceCategory, ServiceSize, Item # Importa los modelos
+        from models import User, Professional, ServiceCategory, ServiceSize, Service, Item
         from utils import guardarBackUpTurnos # Importa las funciones de utilidad
         
         # Registrar el blueprint de rutas
@@ -38,84 +42,50 @@ def create_app():
         
         # Inicializar DB y crear datos iniciales
         db.create_all()
-        
-        # Crear usuario admin si no existe
+        # 1. Crear Usuario Admin (Operador del sistema)
         if not User.query.filter_by(username='admin').first():
             admin_user = User(username='admin', role='admin')
             admin_user.set_password('admin')
             db.session.add(admin_user)
             db.session.commit()
-            print("Usuario 'admin' creado.")
+            print(">> Usuario 'admin' creado.")
         
-        # Crear categorías de servicio si no existen
+        # 2. Crear Profesionales de Ejemplo (Peluqueros)
+        if not Professional.query.first():
+            profesionales = [
+                Professional(name='Sandra', commission_percentage=50.0),
+                Professional(name='Miguel', commission_percentage=45.0),
+                Professional(name='Ayudante', commission_percentage=30.0),
+            ]
+            db.session.add_all(profesionales)
+            db.session.commit()
+            print(">> Profesionales iniciales creados.")
+
+        # 3. Datos Maestros (Categorías, Tamaños, Items)
         if not ServiceCategory.query.first():
+            # ... (Misma lógica de categorías que tenías antes) ...
             categories = [
-                ServiceCategory(name='Baño', description='Solo baño', display_order=1),
-                ServiceCategory(name='Baño y Deslanado', description='Baño con deslanado', display_order=2),
-                ServiceCategory(name='Baño y Corte', description='Baño completo con corte', display_order=3),
+                ServiceCategory(name='Baño', display_order=1),
+                ServiceCategory(name='Baño y Corte', display_order=2),
+                ServiceCategory(name='Corte Higiénico', display_order=3),
             ]
             db.session.add_all(categories)
-            db.session.commit()
-            print("Categorías de servicio creadas.")
-        
-        # Crear tamaños de servicio si no existen
-        if not ServiceSize.query.first():
+            
             sizes = [
                 ServiceSize(name='Chico', display_order=1),
                 ServiceSize(name='Mediano', display_order=2),
-                ServiceSize(name='Mediano/Grande', display_order=3),
-                ServiceSize(name='Gigante', display_order=4),
+                ServiceSize(name='Grande', display_order=3),
             ]
             db.session.add_all(sizes)
-            db.session.commit()
-            print("Tamaños de servicio creados.")
-        
-        # Crear servicios (combinaciones de categoría × tamaño) si no existen
-        if not Service.query.first():
-            categories = ServiceCategory.query.order_by(ServiceCategory.display_order).all()
-            sizes = ServiceSize.query.order_by(ServiceSize.display_order).all()
             
-            # Matriz de precios [categoría][tamaño]
-            prices = {
-                'Baño': [8000, 10000, 12000, 15000],
-                'Baño y Deslanado': [12000, 15000, 18000, 22000],
-                'Baño y Corte': [15000, 18000, 22000, 28000],
-            }
-            
-            # Matriz de duraciones [categoría][tamaño]
-            durations = {
-                'Baño': [30, 45, 60, 75],
-                'Baño y Deslanado': [45, 60, 75, 90],
-                'Baño y Corte': [60, 90, 120, 150],
-            }
-            
-            services = []
-            for category in categories:
-                for i, size in enumerate(sizes):
-                    service = Service(
-                        category_id=category.id,
-                        size_id=size.id,
-                        base_price=prices[category.name][i],
-                        duration_minutes=durations[category.name][i]
-                    )
-                    services.append(service)
-            
-            db.session.add_all(services)
-            print(f"Servicios creados: {len(services)} combinaciones de categoría × tamaño.")
-        
-        # Crear items adicionales si no existen
-        if not Item.query.first():
             items = [
                 Item(name='Desanudado', price=2000),
-                Item(name='Corte de uñas', price=1500),
-                Item(name='Limpieza de oídos', price=800),
-                Item(name='Vaciado de glándulas', price=1200),
-                Item(name='Shampoo especial', price=1000),
+                Item(name='Corte de Uñas', price=500),
             ]
             db.session.add_all(items)
-            print("Items adicionales creados.")
-        
-        db.session.commit()
+            
+            db.session.commit()
+            print(">> Datos maestros creados.")
             
     return app
 
