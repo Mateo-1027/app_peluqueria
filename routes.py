@@ -3,11 +3,11 @@
 from flask import Blueprint, render_template, request, redirect, jsonify, url_for, flash
 from flask_login import login_user, login_required, logout_user, current_user
 from extensions import db, login_manager 
-from models import User, Dog, Appointment, MedicalNote, Service, ServiceCategory, ServiceSize, Item, Owner, Professional
+from models import User, Dog, Appointment, MedicalNote, Service, ServiceCategory, ServiceSize, Item, Owner, Professional, Payment
 from utils import guardarBackUpTurnos 
 from datetime import datetime, timedelta
 from forms import LoginForm, DogForm, AppointmentForm, ServiceForm, ServiceCategoryForm, ServiceSizeForm, ItemForm, PaymentForm 
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 
 # Crear un Blueprint
 main = Blueprint('main', __name__)
@@ -717,3 +717,61 @@ def delete_size(size_id):
     db.session.commit()
     flash(f'Tamaño "{size.name}" desactivado.')
     return redirect(url_for('main.list_sizes'))
+
+@main.route('/appointments/<int:appointment_id>/checkout', methods=['GET', 'POST'])
+@login_required
+def checkout(appointment_id):
+    """Pantalla de Caja para un turno especifico"""
+
+    appointment = Appointment.query.get_or_404(appointment_id)
+    payment_form = PaymentForm()
+
+    if payment_form.validate_on_submit():
+        amount = payment_form.amount.data
+
+        # Se crea el pago
+        new_payment = Payment(
+            appointment_id=appointment_id,
+            amount=amount,
+            payment_method=payment_form.payment_method.data,
+            payment_type=payment_form.payment_type.data,
+            notes=payment_form.notes.data
+        )
+        db.session.add(new_payment)
+
+        if appointment.saldo_pendiente - amount <= 0:
+            appointment.status = 'Cobrado'
+            
+            prof = appointment.professional
+            if prof:
+                pct = prof.commission_percentage
+                appointment.commission_amount = appointment.total_amount * (pct / 100)
+        elif appointment.status == 'Pendiente':
+            appointment.status = 'Señado'
+            
+        db.session.commit()
+
+        flash(f'Pago de ${amount:,.0f} registrado.')
+        return redirect(url_for('main.checkout', appointment_id=appointment.id))
+
+    return render_template('sales/checkout.html', appointment=appointment, form=payment_form)
+
+@main.route('/sales')
+@login_required
+def daily_sales():
+    """Reporte de Ventas del Día y Comisiones"""
+    today = datetime.now().date()
+
+    payments = Payment.query.filter(
+        func.date(Payment.date) == today
+    ).all()
+    
+    total_cash = sum(p.amount for p in payments)
+    
+
+    completed_appointments = Appointment.query.filter(
+        func.date(Appointment.end_time) == today,
+        Appointment.status == 'Cobrado'
+    ).all()
+
+    return render_template('sales/daily_report.html', payments=payments, total_cash=total_cash,  appointments=completed_appointments)

@@ -37,9 +37,11 @@ def test_calculo_precio_turno(app):
         from models import Service
         service = Service.query.first()
         
-        # 4. Obtener User (creado en conftest)
-        from models import User
-        user = User.query.filter_by(username="admin").first()
+        # 4. Crear Professional (peluquera)
+        from models import Professional
+        prof = Professional(name="Ana Martinez", commission_percentage=50.0)
+        db.session.add(prof)
+        db.session.commit()
         
         # 5. Crear Appointment
         start = datetime(2025, 1, 1, 10, 0)
@@ -50,7 +52,7 @@ def test_calculo_precio_turno(app):
             end_time=end,
             final_price=15000,
             status='Pendiente',
-            user_id=user.id,
+            professional_id=prof.id,
             dog_id=dog.id,
             service_id=service.id
         )

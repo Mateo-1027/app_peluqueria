@@ -42,7 +42,7 @@ class PaymentForm(FlaskForm):
     notes = StringField('Notas (Op.)')
     submit = SubmitField('Registrar Pago')
 
-# Formularios para gestión de Servicios e Items
+
 class ServiceForm(FlaskForm):
     category_id = SelectField('Categoría', coerce=int, validators=[DataRequired()])
     size_id = SelectField('Tamaño', coerce=int, validators=[DataRequired()])
