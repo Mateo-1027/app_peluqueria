@@ -2,11 +2,11 @@
 
 from flask import Blueprint, render_template, request, redirect, jsonify, url_for, flash
 from flask_login import login_user, login_required, logout_user, current_user
-from extensions import db, login_manager # Importa las extensiones
-from models import User, Dog, Appointment, MedicalNote, Service, ServiceCategory, ServiceSize, Item, Owner
-from utils import guardarBackUpTurnos # Importa la función de utilidad
+from extensions import db, login_manager 
+from models import User, Dog, Appointment, MedicalNote, Service, ServiceCategory, ServiceSize, Item, Owner, Professional
+from utils import guardarBackUpTurnos 
 from datetime import datetime, timedelta
-from forms import LoginForm, DogForm, AppointmentForm, ServiceForm, ServiceCategoryForm, ServiceSizeForm, ItemForm
+from forms import LoginForm, DogForm, AppointmentForm, ServiceForm, ServiceCategoryForm, ServiceSizeForm, ItemForm, PaymentForm 
 from sqlalchemy import or_
 
 # Crear un Blueprint
@@ -63,7 +63,7 @@ def vista_turnos():
 
     services = Service.query.filter_by(is_active=True).all()
     items = Item.query.filter_by(is_active=True).all()
-    users = User.query.all()  # Todas las peluqueras
+    professionals = Professional.query.filter_by(is_active=True).all()
     
     # Agrupar servicios por categoría
     categories = ServiceCategory.query.filter_by(is_active=True).order_by(ServiceCategory.display_order).all()
@@ -77,7 +77,7 @@ def vista_turnos():
   
     form.service_id.choices = [(s.id, f"{s.name} - ${s.base_price:,.0f}") for s in services]
     form.item_ids.choices = [(i.id, f"{i.name} (+${i.price:,.0f})") for i in items]
-    form.user_id.choices = [(u.id, u.username) for u in users]
+    form.professional_id.choices = [(p.id, p.name) for p in professionals]
 
     return render_template('turnos.html', dogs=[], form=form, services_by_category=services_by_category)
 
@@ -124,11 +124,11 @@ def add_appointment():
     # Cargar opciones para el formulario
     services = Service.query.filter_by(is_active=True).all()
     items = Item.query.filter_by(is_active=True).all()
-    users = User.query.all()
+    professionals = Professional.query.filter_by(is_active=True).all()
     
     form.service_id.choices = [(s.id, s.name) for s in services]
     form.item_ids.choices = [(i.id, i.name) for i in items]
-    form.user_id.choices = [(u.id, u.username) for u in users]
+    form.professional_id.choices = [(p.id, p.name) for p in professionals]
 
     if form.validate_on_submit():
         # Obtener el servicio seleccionado
@@ -147,10 +147,11 @@ def add_appointment():
         new_appointment = Appointment(
             dog_id=form.dog_id.data,
             service_id=form.service_id.data,
-            user_id=form.user_id.data,
+            professional_id=form.professional_id.data,
             description=form.description.data,
             start_time=form.start_time.data,
             end_time=end_time,
+            total_amount=final_price,
             final_price=final_price,
             color=form.color.data,
             status='Pendiente'

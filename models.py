@@ -25,7 +25,7 @@ class Professional(db.Model):
     """Peluquero/Estilista"""
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    commission = db.Column(db.Float, default=50.0)
+    commission_percentage = db.Column(db.Float, default=50.0)
     is_active = db.Column(db.Boolean, default=True)
 
     appointments = db.relationship('Appointment', backref='professional', lazy=True)

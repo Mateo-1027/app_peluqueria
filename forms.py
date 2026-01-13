@@ -22,12 +22,25 @@ class AppointmentForm(FlaskForm):
     dog_id = HiddenField('Perro', validators=[DataRequired()])
     service_id = RadioField('Servicio', coerce=int, validators=[DataRequired()])  # RadioField para solo un servicio
     item_ids = SelectMultipleField('Adicionales (opcional)', coerce=int, validators=[Optional()])
-    user_id = SelectField('Peluquera', coerce=int, validators=[DataRequired()])
+    professional = SelectField('Peluquera', coerce=int, validators=[DataRequired()])
     start_time = DateTimeLocalField('Fecha y Hora', format='%Y-%m-%dT%H:%M', validators=[DataRequired()])
     duration = IntegerField('Duración (minutos)', validators=[DataRequired(), NumberRange(min=15, message="La duración mínima es de 15 minutos.")])  # Duración manual
     description = TextAreaField('Notas adicionales', validators=[Optional(), Length(max=500)])
     color = StringField('Color', validators=[Optional()])
     submit = SubmitField('Guardar Turno')
+
+class PaymentForm(FlaskForm):
+    amount = IntegerField('Monto ($)', validators=[DataRequired(), NumberRange(min=1)])
+    payment_method = SelectField('Medio de Pago', choices=[
+        ('Efectivo', 'Efectivo'),
+        ('Transferencia', 'Transferencia'),
+        ('Debito', 'Tarjeta Débito'),
+        ('Credito', 'Tarjeta Crédito'),
+        ('MercadoPago', 'MercadoPago')
+    ], validators=[DataRequired()])
+    payment_type = SelectField('Tipo', choices=[('Pago', 'Pago del Turno'), ('Seña', 'Seña / Anticipo')], default='Pago')
+    notes = StringField('Notas (Op.)')
+    submit = SubmitField('Registrar Pago')
 
 # Formularios para gestión de Servicios e Items
 class ServiceForm(FlaskForm):
