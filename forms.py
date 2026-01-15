@@ -22,15 +22,21 @@ class AppointmentForm(FlaskForm):
     dog_id = HiddenField('Perro', validators=[DataRequired()])
     service_id = RadioField('Servicio', coerce=int, validators=[DataRequired()])  # RadioField para solo un servicio
     item_ids = SelectMultipleField('Adicionales (opcional)', coerce=int, validators=[Optional()])
-    professional = SelectField('Peluquera', coerce=int, validators=[DataRequired()])
+    professional_id = SelectField('Peluquera', coerce=int, validators=[DataRequired()])
     start_time = DateTimeLocalField('Fecha y Hora', format='%Y-%m-%dT%H:%M', validators=[DataRequired()])
     duration = IntegerField('Duración (minutos)', validators=[DataRequired(), NumberRange(min=15, message="La duración mínima es de 15 minutos.")])  # Duración manual
     description = TextAreaField('Notas adicionales', validators=[Optional(), Length(max=500)])
     color = StringField('Color', validators=[Optional()])
     submit = SubmitField('Guardar Turno')
 
-class PaymentForm(FlaskForm):
-    amount = IntegerField('Monto ($)', validators=[DataRequired(), NumberRange(min=1)])
+class CheckoutForm(FlaskForm):
+    # Campos para editar el turno
+    service_id = SelectField('Servicio Realizado', coerce=int, validators=[DataRequired()])
+    item_ids = SelectMultipleField('Adicionales', coerce=int, validators=[Optional()])
+    final_price = IntegerField('Total a Pagar ($)', validators=[DataRequired(), NumberRange(min=0)])
+    
+    # Campos del pago
+    amount = IntegerField('Monto a Abonar ($)', validators=[DataRequired(), NumberRange(min=1)])
     payment_method = SelectField('Medio de Pago', choices=[
         ('Efectivo', 'Efectivo'),
         ('Transferencia', 'Transferencia'),
@@ -39,8 +45,8 @@ class PaymentForm(FlaskForm):
         ('MercadoPago', 'MercadoPago')
     ], validators=[DataRequired()])
     payment_type = SelectField('Tipo', choices=[('Pago', 'Pago del Turno'), ('Seña', 'Seña / Anticipo')], default='Pago')
-    notes = StringField('Notas (Op.)')
-    submit = SubmitField('Registrar Pago')
+    notes = StringField('Notas del Pago')
+    submit = SubmitField('Confirmar y Cobrar')
 
 
 class ServiceForm(FlaskForm):

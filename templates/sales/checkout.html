@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+
+{% block title %}Caja - Cobrar Turno{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <form method="POST" action="{{ url_for('main.checkout', appointment_id=appointment.id) }}">
+        {{ form.csrf_token }}
+
+        <div class="bg-white rounded-2xl shadow-lg overflow-hidden mb-6 border border-gray-100">
+            <!-- Header -->
+            <div class="bg-gray-800 text-white p-6 flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold">Caja: {{ appointment.dog.name }}</h1>
+                    <p class="text-gray-300">Dueño: {{ appointment.dog.owner.name }}</p>
+                </div>
+                <div class="text-right">
+                    <span class="block text-sm opacity-75">Estado</span>
+                    <span class="px-3 py-1 rounded-full text-sm font-bold 
+                        {% if appointment.status == 'Cobrado' %}bg-green-500 text-white
+                        {% elif appointment.status == 'Señado' %}bg-yellow-500 text-black
+                        {% else %}bg-gray-500 text-white{% endif %}">
+                        {{ appointment.status }}
+                    </span>
+                </div>
+            </div>
+
+            {% if appointment.saldo_pendiente <= 0 %} <!-- Turno ya pagado -->
+                <div class="p-8 text-center">
+                    <div class="text-6xl mb-4">✅</div>
+                    <h3 class="text-2xl font-bold text-green-700 mb-2">¡Turno Cobrado!</h3>
+                    <p class="text-gray-600 mb-6">Este turno ya está pagado en su totalidad.</p>
+                    <a href="{{ url_for('main.vista_turnos') }}"
+                        class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-bold transition">
+                        Volver al Calendario
+                    </a>
+                </div>
+                {% else %}
+
+                <div class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Columna Izquierda: Selección de Servicio -->
+                    <div class="space-y-6">
+                        <h3 class="font-bold text-gray-700 border-b pb-2 text-lg">Servicio</h3>
+
+                        <div class="bg-gray-50 p-5 rounded-xl border border-gray-200 space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Servicio Realizado</label>
+                                {{ form.service_id(class="w-full p-3 border rounded-lg bg-white focus:ring-2
+                                focus:ring-blue-500 font-medium text-gray-800", id="service_selector") }}
+                            </div>
+
+                            <div class="bg-white p-4 rounded-lg border border-gray-200">
+                                <label class="block text-sm font-medium text-gray-700 mb-3">Adicionales</label>
+                                <div class="space-y-2">
+                                    {% for item in items %}
+                                    <label
+                                        class="flex items-center justify-between p-2 rounded hover:bg-gray-50 cursor-pointer">
+                                        <div class="flex items-center">
+                                            <input type="checkbox" name="item_ids" value="{{ item.id }}"
+                                                class="w-4 h-4 text-blue-600 rounded border-gray-300 item-checkbox"
+                                                data-price="{{ item.price }}" data-name="{{ item.name }}" {% if item.id
+                                                in form.item_ids.data %}checked{% endif %}>
+                                            <span class="ml-2 text-gray-700 text-sm">{{ item.name }}</span>
+                                        </div>
+                                        <span class="text-sm font-semibold text-gray-500">+${{ item.price|format_number
+                                            }}</span>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Historial de Pagos -->
+                        {% if appointment.payments %}
+                        <div class="bg-amber-50 p-4 rounded-xl border border-amber-200">
+                            <h4 class="font-bold text-amber-800 text-sm uppercase mb-3">Pagos Anteriores</h4>
+                            {% for p in appointment.payments %}
+                            <div
+                                class="flex justify-between text-amber-700 text-sm mb-2 pb-2 border-b border-amber-200 last:border-0">
+                                <span>{{ p.date.strftime('%d/%m %H:%M') }} - {{ p.payment_type }}</span>
+                                <span class="font-bold">${{ p.amount|format_number }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Columna Derecha: Recibo y Pago -->
+                    <div class="space-y-6">
+                        <h3 class="font-bold text-gray-700 border-b pb-2 text-lg">Resumen de Pago</h3>
+
+                        <!-- Recibo Visual -->
+                        <div class="bg-white border-2 border-gray-300 rounded-xl p-5 font-mono text-sm">
+                            <div class="space-y-2">
+                                <div class="flex justify-between">
+                                    <span>Servicio:</span>
+                                    <span id="receipt-service">$0</span>
+                                </div>
+                                <div id="receipt-items" class="space-y-1 text-gray-600">
+                                    <!-- Items dinámicos -->
+                                </div>
+                                <div class="border-t border-dashed border-gray-300 my-2"></div>
+                                <div class="flex justify-between font-bold">
+                                    <span>Subtotal:</span>
+                                    <span id="receipt-subtotal">$0</span>
+                                </div>
+                                {% if total_pagado > 0 %}
+                                <div class="flex justify-between text-green-600">
+                                    <span>- Pagado (Seña):</span>
+                                    <span>-${{ total_pagado|format_number }}</span>
+                                </div>
+                                {% endif %}
+                                <div class="border-t-2 border-gray-800 my-2"></div>
+                                <div class="flex justify-between text-xl font-bold text-blue-900">
+                                    <span>A PAGAR:</span>
+                                    <span id="receipt-total">$0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Formulario de Pago -->
+                        <div class="bg-blue-50 p-5 rounded-xl border border-blue-100 space-y-4">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-blue-900 mb-1">Tipo</label>
+                                    {{ form.payment_type(class="w-full p-2 border border-blue-200 rounded-lg bg-white",
+                                    id="payment_type_selector") }}
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-blue-900 mb-1">Medio</label>
+                                    {{ form.payment_method(class="w-full p-2 border border-blue-200 rounded-lg
+                                    bg-white") }}
+                                </div>
+                            </div>
+
+                            <!-- Monto (solo visible para Seña) -->
+                            <div id="sena-amount-container" style="display: none;">
+                                <label class="block text-sm font-medium text-blue-900 mb-1">Monto de la Seña ($)</label>
+                                {{ form.amount(class="w-full p-3 border-2 border-blue-200 rounded-lg font-mono text-xl
+                                font-bold text-blue-900", id="payment_amount_input") }}
+                            </div>
+
+                            <!-- Campo oculto para el monto cuando es Pago -->
+                            <input type="hidden" id="hidden_amount" name="amount_hidden" value="0">
+
+                            <!-- Campo oculto para final_price -->
+                            {{ form.final_price(type="hidden", id="final_price_input") }}
+
+                            <div>
+                                <label class="block text-sm font-medium text-blue-900 mb-1">Notas (Opcional)</label>
+                                {{ form.notes(class="w-full p-2 border border-blue-200 rounded-lg", placeholder="Nro
+                                comprobante...") }}
+                            </div>
+
+                            <button type="submit"
+                                class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl shadow-lg transition text-lg">
+                                <span id="btn-text">Confirmar Pago</span>
+                            </button>
+                        </div>
+
+                        <div class="text-center">
+                            <a href="{{ url_for('main.edit_appointment', appointment_id=appointment.id) }}"
+                                class="text-gray-500 hover:text-gray-700 underline text-sm">
+                                Volver a Editar Turno
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+        </div>
+    </form>
+</div>
+
+<!-- Datos para JavaScript -->
+<div id="price-data" style="display:none" data-services='{{ services_json }}' data-items='{{ items_json }}'
+    data-pagado='{{ total_pagado|int }}'></div>
+
+<script>
+    const priceData = document.getElementById('price-data');
+    const servicePrices = JSON.parse(priceData.dataset.services || '{}');
+    const itemPrices = JSON.parse(priceData.dataset.items || '{}');
+    const totalPagado = parseInt(priceData.dataset.pagado) || 0;
+
+    const serviceSelector = document.getElementById('service_selector');
+    const paymentTypeSelector = document.getElementById('payment_type_selector');
+    const paymentAmountInput = document.getElementById('payment_amount_input');
+    const finalPriceInput = document.getElementById('final_price_input');
+    const senaContainer = document.getElementById('sena-amount-container');
+    const itemCheckboxes = document.querySelectorAll('.item-checkbox');
+    const btnText = document.getElementById('btn-text');
+
+    function formatNumber(num) {
+        return num.toLocaleString('es-AR');
+    }
+
+    function updateReceipt() {
+        // Precio del servicio
+        const serviceId = parseInt(serviceSelector.value);
+        const servicePrice = servicePrices[serviceId] || 0;
+        document.getElementById('receipt-service').textContent = '$' + formatNumber(servicePrice);
+
+        // Items adicionales
+        let itemsTotal = 0;
+        const itemsContainer = document.getElementById('receipt-items');
+        itemsContainer.innerHTML = '';
+
+        itemCheckboxes.forEach(cb => {
+            if (cb.checked) {
+                const price = parseInt(cb.dataset.price) || 0;
+                const name = cb.dataset.name || 'Adicional';
+                itemsTotal += price;
+
+                const div = document.createElement('div');
+                div.className = 'flex justify-between';
+                div.innerHTML = '<span>+ ' + name + ':</span><span>$' + formatNumber(price) + '</span>';
+                itemsContainer.appendChild(div);
+            }
+        });
+
+        // Subtotal
+        const subtotal = servicePrice + itemsTotal;
+        document.getElementById('receipt-subtotal').textContent = '$' + formatNumber(subtotal);
+
+        // Total a pagar (subtotal - lo ya pagado)
+        const totalAPagar = Math.max(0, subtotal - totalPagado);
+        document.getElementById('receipt-total').textContent = '$' + formatNumber(totalAPagar);
+
+        // Actualizar campo oculto de precio final
+        if (finalPriceInput) {
+            finalPriceInput.value = subtotal;
+        }
+
+        // Si es Pago, actualizar monto automáticamente
+        if (paymentTypeSelector && paymentTypeSelector.value === 'Pago') {
+            if (paymentAmountInput) {
+                paymentAmountInput.value = totalAPagar;
+            }
+        }
+
+        return totalAPagar;
+    }
+
+    function updatePaymentType() {
+        const isSeña = paymentTypeSelector.value === 'Seña';
+
+        if (isSeña) {
+            // Mostrar campo de monto para seña
+            senaContainer.style.display = 'block';
+            paymentAmountInput.value = '';
+            paymentAmountInput.focus();
+            btnText.textContent = 'Registrar Seña';
+        } else {
+            // Ocultar campo, usar total calculado
+            senaContainer.style.display = 'none';
+            const total = updateReceipt();
+            paymentAmountInput.value = total;
+            btnText.textContent = 'Confirmar Pago';
+        }
+    }
+
+    // Listeners
+    if (serviceSelector) {
+        serviceSelector.addEventListener('change', updateReceipt);
+    }
+
+    itemCheckboxes.forEach(cb => {
+        cb.addEventListener('change', updateReceipt);
+    });
+
+    if (paymentTypeSelector) {
+        paymentTypeSelector.addEventListener('change', updatePaymentType);
+    }
+
+    // Inicializar
+    updateReceipt();
+    updatePaymentType();
+</script>
+{% endblock %}

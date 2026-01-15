@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block title %}Ventas del Día{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-800">Ventas del Día</h1>
+            <p class="text-gray-500 mt-1">{{ today.strftime('%d/%m/%Y') }}</p>
+        </div>
+        <div class="flex gap-4">
+            <div class="bg-green-100 px-5 py-3 rounded-xl border border-green-200 text-center">
+                <span class="block text-xs font-bold text-green-600 uppercase">Recaudado</span>
+                <span class="block text-xl font-extrabold text-green-800">${{ total_cash|format_number }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ventas (Pagos completos) -->
+    <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+        <h2 class="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
+            Ventas Realizadas
+            <span class="text-xs font-normal bg-green-100 text-green-700 px-2 py-1 rounded">
+                {{ pagos|length }} turnos - ${{ total_pagos|format_number }}
+            </span>
+        </h2>
+
+        {% if pagos %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 text-gray-600 font-medium text-left">
+                    <tr>
+                        <th class="px-4 py-3">Hora</th>
+                        <th class="px-4 py-3">Cliente</th>
+                        <th class="px-4 py-3">Servicio</th>
+                        <th class="px-4 py-3">Profesional</th>
+                        <th class="px-4 py-3 text-right">Monto</th>
+                        <th class="px-4 py-3 text-center">Acción</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for p in pagos %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 text-gray-500">{{ p.date.strftime('%H:%M') }}</td>
+                        <td class="px-4 py-3">
+                            <div class="font-medium text-gray-800">{{ p.appointment.dog.name }}</div>
+                            <div class="text-xs text-gray-500">{{ p.appointment.dog.owner.name }}</div>
+                        </td>
+                        <td class="px-4 py-3">
+                            <div>{{ p.appointment.service.name }}</div>
+                            {% if p.appointment.items %}
+                            <div class="text-xs text-gray-400">
+                                + {% for item in p.appointment.items %}{{ item.name }}{% if not loop.last %}, {% endif
+                                %}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-gray-600">{{ p.appointment.professional.name if
+                            p.appointment.professional else '-' }}</td>
+                        <td class="px-4 py-3 text-right font-bold text-green-600">${{ p.amount|format_number }}</td>
+                        <td class="px-4 py-3 text-center">
+                            <form action="{{ url_for('main.delete_payment', payment_id=p.id) }}" method="POST"
+                                onsubmit="return confirm('¿Eliminar esta venta de ${{ p.amount|format_number }}?');">
+                                {{ form.csrf_token }}
+                                <button type="submit"
+                                    class="text-red-500 hover:text-red-700 text-sm px-2 py-1 rounded hover:bg-red-50">
+                                    Eliminar
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-gray-400 text-center py-6">No hay ventas registradas hoy.</p>
+        {% endif %}
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Señas del Día -->
+        <div class="bg-white rounded-xl shadow-lg p-6">
+            <h2 class="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
+                Señas Recibidas
+                <span class="text-xs font-normal bg-amber-100 text-amber-700 px-2 py-1 rounded">
+                    {{ senas|length }} - ${{ total_senas|format_number }}
+                </span>
+            </h2>
+
+            {% if senas %}
+            <div class="space-y-3">
+                {% for s in senas %}
+                <div class="flex justify-between items-center p-3 bg-amber-50 rounded-lg border border-amber-100">
+                    <div>
+                        <div class="font-medium text-gray-800">{{ s.appointment.dog.name }}</div>
+                        <div class="text-xs text-gray-500">{{ s.date.strftime('%H:%M') }} - {{ s.payment_method }}</div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="font-bold text-amber-700">${{ s.amount|format_number }}</span>
+                        <form action="{{ url_for('main.delete_payment', payment_id=s.id) }}" method="POST"
+                            onsubmit="return confirm('¿Eliminar esta seña de ${{ s.amount|format_number }}?');">
+                            {{ form.csrf_token }}
+                            <button type="submit" class="text-red-400 hover:text-red-600 text-xs">✕</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-gray-400 text-center py-6">No hay señas registradas hoy.</p>
+            {% endif %}
+        </div>
+
+        <!-- Comisiones -->
+        <div class="bg-white rounded-xl shadow-lg p-6 border-t-4 border-purple-500">
+            <h2 class="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
+                Comisiones a Liquidar
+                <span class="text-xs font-normal bg-purple-100 text-purple-700 px-2 py-1 rounded">
+                    ${{ total_comisiones|format_number }}
+                </span>
+            </h2>
+
+            {% if appointments %}
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-purple-50 text-purple-700 font-medium text-left">
+                        <tr>
+                            <th class="px-3 py-2">Profesional</th>
+                            <th class="px-3 py-2">Servicio</th>
+                            <th class="px-3 py-2 text-right">Venta</th>
+                            <th class="px-3 py-2 text-right">Comisión</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for appt in appointments %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-3 py-2 font-bold text-gray-700">{{ appt.professional.name if appt.professional
+                                else '-' }}</td>
+                            <td class="px-3 py-2 text-gray-500">{{ appt.service.name }}</td>
+                            <td class="px-3 py-2 text-right text-gray-600">${{ appt.final_price|format_number }}</td>
+                            <td class="px-3 py-2 text-right">
+                                <span class="font-bold text-purple-600">${{ (appt.commission_amount or 0)|format_number
+                                    }}</span>
+                                <span class="text-xs text-gray-400 block">{{ appt.professional.commission_percentage if
+                                    appt.professional else 0 }}%</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-gray-400 text-center py-6">No hay comisiones a liquidar hoy.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Resumen de Caja -->
+    <div class="mt-6 bg-gray-800 rounded-xl p-6 text-white">
+        <h2 class="text-lg font-bold mb-4">Resumen de Caja</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="bg-gray-700 rounded-lg p-4 text-center">
+                <span class="block text-gray-400 text-sm">Ventas</span>
+                <span class="block text-2xl font-bold text-green-400">${{ total_pagos|format_number }}</span>
+            </div>
+            <div class="bg-gray-700 rounded-lg p-4 text-center">
+                <span class="block text-gray-400 text-sm">Señas</span>
+                <span class="block text-2xl font-bold text-amber-400">${{ total_senas|format_number }}</span>
+            </div>
+            <div class="bg-gray-700 rounded-lg p-4 text-center">
+                <span class="block text-gray-400 text-sm">Total Ingresado</span>
+                <span class="block text-2xl font-bold text-white">${{ total_cash|format_number }}</span>
+            </div>
+            <div class="bg-gray-700 rounded-lg p-4 text-center">
+                <span class="block text-gray-400 text-sm">Comisiones</span>
+                <span class="block text-2xl font-bold text-purple-400">-${{ total_comisiones|format_number }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -6,7 +6,7 @@ from extensions import db, login_manager
 from models import User, Dog, Appointment, MedicalNote, Service, ServiceCategory, ServiceSize, Item, Owner, Professional, Payment
 from utils import guardarBackUpTurnos 
 from datetime import datetime, timedelta
-from forms import LoginForm, DogForm, AppointmentForm, ServiceForm, ServiceCategoryForm, ServiceSizeForm, ItemForm, PaymentForm 
+from forms import LoginForm, DogForm, AppointmentForm, ServiceForm, ServiceCategoryForm, ServiceSizeForm, ItemForm, CheckoutForm 
 from sqlalchemy import or_, func
 
 # Crear un Blueprint
@@ -220,11 +220,11 @@ def edit_appointment(appointment_id):
     # Cargar listas para opciones del formulario
     services = Service.query.filter_by(is_active=True).all()
     items = Item.query.filter_by(is_active=True).all()
-    users = User.query.all()
+    professionals = Professional.query.filter_by(is_active=True).all()
     
     form.service_id.choices = [(s.id, f"{s.name} - ${s.base_price:,.0f}") for s in services]
     form.item_ids.choices = [(i.id, f"{i.name} (+${i.price:,.0f})") for i in items]
-    form.user_id.choices = [(u.id, u.username) for u in users]
+    form.professional_id.choices = [(p.id, p.name) for p in professionals]
 
     if form.validate_on_submit():
         # Obtener el servicio
@@ -233,7 +233,7 @@ def edit_appointment(appointment_id):
         # Actualizar datos básicos
         appointment.dog_id = form.dog_id.data
         appointment.service_id = form.service_id.data
-        appointment.user_id = form.user_id.data
+        appointment.professional_id = form.professional_id.data
         appointment.description = form.description.data
         appointment.start_time = form.start_time.data
         appointment.color = form.color.data
@@ -724,37 +724,102 @@ def checkout(appointment_id):
     """Pantalla de Caja para un turno especifico"""
 
     appointment = Appointment.query.get_or_404(appointment_id)
-    payment_form = PaymentForm()
+    form = CheckoutForm()
+    
+    # Cargar opciones de servicios y adicionales
+    services = Service.query.filter_by(is_active=True).all()
+    items = Item.query.filter_by(is_active=True).all()
+    
+    # Configurar choices del formulario
+    form.service_id.choices = [(s.id, f"{s.name} - ${s.base_price:,.0f}") for s in services]
+    # Items con precio para mostrar en el formulario (aunque usaremos JS para el cálculo dinámico visual)
+    form.item_ids.choices = [(i.id, f"{i.name} (+${i.price:,.0f})") for i in items]
 
-    if payment_form.validate_on_submit():
-        amount = payment_form.amount.data
+    # Pre-popular datos en GET
+    if request.method == 'GET':
+        form.service_id.data = appointment.service_id
+        form.item_ids.data = [i.id for i in appointment.items] # Pre-seleccionar items actuales
+        
+        # Si final_price es 0, usamos total_amount (precio calculado)
+        current_total = appointment.final_price if appointment.final_price > 0 else appointment.total_amount
+        form.final_price.data = int(current_total)
+        
+        # El monto a pagar por defecto es el saldo pendiente (basado en el precio actual)
+        saldo = appointment.saldo_pendiente 
+        form.amount.data = int(saldo) if saldo > 0 else 0
 
-        # Se crea el pago
+    if form.validate_on_submit():
+        # 1. Actualizar datos del turno
+        appointment.service_id = form.service_id.data
+        
+        # Actualizar Items (relación many-to-many)
+        if form.item_ids.data:
+            selected_items = Item.query.filter(Item.id.in_(form.item_ids.data)).all()
+            appointment.items = selected_items
+        else:
+            appointment.items = []
+
+        new_total = form.final_price.data
+        
+        # Actualizamos tanto final_price como total_amount para mantener coherencia
+        # En este modelo flexible, el valor ingresado es la "Deuda Total"
+        appointment.final_price = new_total
+        appointment.total_amount = new_total 
+        
+        # 2. Registrar el Pago
+        amount_paid = form.amount.data
+        
         new_payment = Payment(
             appointment_id=appointment_id,
-            amount=amount,
-            payment_method=payment_form.payment_method.data,
-            payment_type=payment_form.payment_type.data,
-            notes=payment_form.notes.data
+            amount=amount_paid,
+            payment_method=form.payment_method.data,
+            payment_type=form.payment_type.data,
+            notes=form.notes.data
         )
         db.session.add(new_payment)
 
-        if appointment.saldo_pendiente - amount <= 0:
+        # 3. Actualizar Estado (Usando el nuevo precio total para calcular saldo)
+        # Recalculamos saldo pendiente con el nuevo total
+        # saldo_pendiente property usa total_amount - pagos
+        # Como aún no hacemos commit, los pagos viejos están en DB, el nuevo en session??
+        # SQLAlchemy session trackea new_payment, asi que appointment.payments lo incluirá tras flush o manualmente
+        
+        db.session.flush() # Para que el nuevo pago cuente en las relaciones si es necesario, aunque saldo_pendiente es logica python
+        
+        if appointment.saldo_pendiente <= 0:
             appointment.status = 'Cobrado'
             
+            # Calcular comisión sobre el PRECIO FINAL real cobrado
             prof = appointment.professional
             if prof:
                 pct = prof.commission_percentage
-                appointment.commission_amount = appointment.total_amount * (pct / 100)
+                # Comisión sobre el total del servicio
+                appointment.commission_amount = appointment.final_price * (pct / 100)
+                
         elif appointment.status == 'Pendiente':
             appointment.status = 'Señado'
             
         db.session.commit()
 
-        flash(f'Pago de ${amount:,.0f} registrado.')
+        flash(f'Actualizado y pago de ${amount_paid:,.0f} registrado.')
         return redirect(url_for('main.checkout', appointment_id=appointment.id))
 
-    return render_template('sales/checkout.html', appointment=appointment, form=payment_form)
+    # Datos para JavaScript
+    import json
+    services_json = json.dumps({s.id: s.base_price for s in services})
+    items_json = json.dumps({i.id: i.price for i in items})
+    
+    # Total ya pagado (para el recibo)
+    total_pagado = sum(p.amount for p in appointment.payments)
+    
+    return render_template('sales/checkout.html', 
+                           appointment=appointment, 
+                           form=form, 
+                           services=services, 
+                           items=items, 
+                           services_json=services_json,
+                           items_json=items_json,
+                           total_pagado=total_pagado)
 
 @main.route('/sales')
 @login_required
@@ -762,16 +827,71 @@ def daily_sales():
     """Reporte de Ventas del Día y Comisiones"""
     today = datetime.now().date()
 
-    payments = Payment.query.filter(
+    # Todos los pagos del día
+    all_payments = Payment.query.filter(
         func.date(Payment.date) == today
-    ).all()
+    ).order_by(Payment.date.desc()).all()
     
-    total_cash = sum(p.amount for p in payments)
+    # Separar pagos de señas
+    pagos = [p for p in all_payments if p.payment_type == 'Pago']
+    senas = [p for p in all_payments if p.payment_type == 'Seña']
     
+    # Totales
+    total_pagos = sum(p.amount for p in pagos)
+    total_senas = sum(p.amount for p in senas)
+    total_cash = total_pagos + total_senas
 
+    # Turnos cobrados hoy (para comisiones)
     completed_appointments = Appointment.query.filter(
         func.date(Appointment.end_time) == today,
         Appointment.status == 'Cobrado'
     ).all()
+    
+    # Total comisiones
+    total_comisiones = sum(a.commission_amount or 0 for a in completed_appointments)
+    
+    # Formulario vacío para CSRF token
+    form = CheckoutForm()
 
-    return render_template('sales/daily_report.html', payments=payments, total_cash=total_cash,  appointments=completed_appointments)
+    return render_template('sales/daily_report.html', 
+                           pagos=pagos,
+                           senas=senas,
+                           total_pagos=total_pagos,
+                           total_senas=total_senas,
+                           total_cash=total_cash,
+                           appointments=completed_appointments,
+                           total_comisiones=total_comisiones,
+                           form=form,
+                           today=today)
+
+@main.route('/payments/delete/<int:payment_id>', methods=['POST'])
+@login_required
+def delete_payment(payment_id):
+    """Eliminar un pago (seña o pago)"""
+    payment = Payment.query.get_or_404(payment_id)
+    appointment = payment.appointment
+    
+    # Guardar datos para el mensaje
+    amount = payment.amount
+    payment_type = payment.payment_type
+    
+    # Eliminar el pago
+    db.session.delete(payment)
+    
+    # Recalcular estado del turno
+    # Si no hay más pagos, volver a Pendiente
+    # Si hay pagos pero no cubre el total, poner Señado
+    remaining_payments = [p for p in appointment.payments if p.id != payment_id]
+    total_pagado_ahora = sum(p.amount for p in remaining_payments)
+    
+    if total_pagado_ahora <= 0:
+        appointment.status = 'Pendiente'
+    elif total_pagado_ahora < appointment.final_price:
+        appointment.status = 'Señado'
+    else:
+        appointment.status = 'Cobrado'
+    
+    db.session.commit()
+    
+    flash(f'{payment_type} de ${amount:,.0f} eliminado.')
+    return redirect(url_for('main.daily_sales'))

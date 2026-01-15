@@ -33,9 +33,25 @@ def test_calculo_precio_turno(app):
         db.session.add(dog)
         db.session.commit()
         
-        # 3. Obtener Service (ya creado por create_app en conftest)
-        from models import Service
-        service = Service.query.first()
+        # 3. Crear ServiceCategory y ServiceSize y Service
+        from models import Service, ServiceCategory, ServiceSize
+        
+        category = ServiceCategory(name="Baño", description="Solo baño", display_order=1)
+        db.session.add(category)
+        db.session.commit()
+        
+        size = ServiceSize(name="Chico", display_order=1)
+        db.session.add(size)
+        db.session.commit()
+        
+        service = Service(
+            category_id=category.id,
+            size_id=size.id,
+            base_price=10000,
+            duration_minutes=60
+        )
+        db.session.add(service)
+        db.session.commit()
         
         # 4. Crear Professional (peluquera)
         from models import Professional

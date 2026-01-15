@@ -85,6 +85,13 @@
         </div>
         {% endfor %}
 
+        {% if not services_by_category %}
+        <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 text-sm">
+          No hay servicios activos. <a href="{{ url_for('main.list_services') }}" class="underline font-bold">Crear
+            servicios</a>
+        </div>
+        {% endif %}
+
         {% if form.service_id.errors %}
         <span class="text-red-500 text-xs">{{ form.service_id.errors[0] }}</span>
         {% endif %}
@@ -131,7 +138,7 @@
 
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-2">Peluquera</label>
-        {{ form.user_id(class="w-full p-2 rounded border focus:ring focus:ring-blue-200") }}
+        {{ form.professional_id(class="w-full p-2 rounded border focus:ring focus:ring-blue-200") }}
       </div>
 
       <div>
