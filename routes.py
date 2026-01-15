@@ -778,25 +778,21 @@ def checkout(appointment_id):
         )
         db.session.add(new_payment)
 
-        # 3. Actualizar Estado (Usando el nuevo precio total para calcular saldo)
-        # Recalculamos saldo pendiente con el nuevo total
-        # saldo_pendiente property usa total_amount - pagos
-        # Como aún no hacemos commit, los pagos viejos están en DB, el nuevo en session??
-        # SQLAlchemy session trackea new_payment, asi que appointment.payments lo incluirá tras flush o manualmente
+        # 3. Actualizar Estado
+        # Calculamos manualmente el total pagado incluyendo el nuevo pago
+        total_pagado_previo = sum(p.amount for p in appointment.payments)
+        total_pagado = total_pagado_previo + amount_paid
+        saldo_restante = new_total - total_pagado
         
-        db.session.flush() # Para que el nuevo pago cuente en las relaciones si es necesario, aunque saldo_pendiente es logica python
-        
-        if appointment.saldo_pendiente <= 0:
+        if saldo_restante <= 0:
             appointment.status = 'Cobrado'
             
             # Calcular comisión sobre el PRECIO FINAL real cobrado
             prof = appointment.professional
             if prof:
                 pct = prof.commission_percentage
-                # Comisión sobre el total del servicio
                 appointment.commission_amount = appointment.final_price * (pct / 100)
-                
-        elif appointment.status == 'Pendiente':
+        elif total_pagado > 0:
             appointment.status = 'Señado'
             
         db.session.commit()
